@@ -1,0 +1,6 @@
+[server]
+address = "127.0.0.1"
+maxUploadSize = 5
+
+[browser]
+gatherUsageStats = false
