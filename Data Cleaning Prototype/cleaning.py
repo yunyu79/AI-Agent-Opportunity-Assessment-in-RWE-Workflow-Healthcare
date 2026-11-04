@@ -168,8 +168,13 @@ def propose(rows, columns, contract):
 def profile(rows, columns, contract):
     candidates = propose(rows, columns, contract)
     tokens = {v.strip().casefold() for v in contract['missing_tokens']}
+    missing = {c: sum(r[c] is None or (isinstance(r[c],str) and r[c].strip().casefold() in tokens) for r in rows) for c in columns}
+    percentages = {c: round(100 * missing[c] / len(rows), 2) if rows else 0 for c in columns}
     return {'rows': len(rows), 'columns': columns,
-            'missing_by_column': {c: sum(r[c] is None or (isinstance(r[c],str) and r[c].strip().casefold() in tokens) for r in rows) for c in columns},
+            'missing_by_column': missing,
+            'missing_percent_by_column': percentages,
+            'unknown_by_column': {c: sum(isinstance(r[c],str) and r[c].strip().casefold() == 'unknown' for r in rows) for c in columns},
+            'high_missing_columns': [c for c in columns if rows and missing[c] / len(rows) > 0.2],
             'duplicate_rows': len(rows)-len({fingerprint(r,columns) for r in rows}),
             'candidates': candidates}
 

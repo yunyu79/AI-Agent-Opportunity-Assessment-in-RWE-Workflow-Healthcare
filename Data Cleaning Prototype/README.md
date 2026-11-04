@@ -18,7 +18,7 @@ On Windows, use `python` instead of `python3`, then activate with `.venv\Scripts
 
 Open **http://127.0.0.1:8501**. The supplied Streamlit configuration binds to loopback and disables usage statistics. Start the app from this folder so that configuration is loaded.
 
-1. Leave **Synthetic RWE sample** and **Offline rules** selected.
+1. Choose **patient.csv (500 rows)** (the default), **medication.csv (500 rows)**, or **procedure.csv (500 rows)**, and leave **Offline rules** selected. The matching contract loads automatically; process one table per run.
 2. Click **Profile and propose plan**. This runs the real LangGraph and pauses at `interrupt()` without modifying data.
 3. Inspect the proposed tools, columns and affected-cell estimates. Select approved actions. Exact-duplicate removal is deliberately **not selected by default** because identical rows can represent legitimate repeated events.
 4. Click **Apply selected actions**. Each subsequent review round requires a separate approval. The graph stops after at most two cleaning rounds.
@@ -89,11 +89,25 @@ The app uses direct OpenAI Responses API calls for structured planning and LangG
 
 Default domain checks flag age outside 0–120, negative total costs, missing required fields, invalid numbers/dates, unmapped categories and discharge before admission. These are **editable demonstration checks**, not validated clinical rules. Implausible values are never automatically corrected, removed, winsorized or imputed. Negative costs can be legitimate adjustments in some datasets: adapt the contract to the study and data source.
 
-## Data contract and sample
+## Demo inputs and editable agent instructions
 
-The default synthetic table has `patient_id`, `age`, `sex`, `admission_date`, `discharge_date`, and `total_cost`. The UI's **Edit data contract** panel defines required/identifier/numeric/date columns, missing tokens, category maps, plausibility ranges and date-order pairs.
+The three user-reviewed synthetic CSVs are stored unchanged in `data/demo/`. Each contains **500 data rows**, excluding its header. `data/demo/manifest.json` records hashes and fixture expectations.
 
-`sample_rwe.csv` has 10 fictional source records with common formatting issues and deliberately unresolved clinical/data problems. Approving all tools yields 8 rows with the supplied contract; leaving duplicate removal unapproved preserves all 10 rows. Repeated patient IDs with different encounters are retained.
+| Input | Deliberate missingness | Additional examples |
+|---|---|---|
+| `patient.csv` | `race`: 150 blanks (30%) | 5 separate Unknown race values; 2 extra exact duplicates; age 240 and -5 |
+| `medication.csv` | `paid_amount`: 125 blanks (25%) | Other numeric/category blanks; 5 separate Unknown route values; 3 blank patient IDs |
+| `procedure.csv` | `description`: 125 blanks (25%) | Missing codes/dates and 3 blank patient IDs; description lookup is future work |
+
+The sidebar loads `contracts/patient.json`, `contracts/medication.json`, or `contracts/procedure.json` with the corresponding dataset. Edit the contract in the UI for that run, or edit the matching JSON file to change the default. The source names and synthetic codes are preserved for future reviewed OMOP/CDISC mappings. Switching dataset does not change an already-started run; click **Profile and propose plan** to start a new run.
+
+Read and edit **[SKILL.md](SKILL.md)** for repository-scoped agent instructions. It describes the workflow, >20% review rule, Unknown handling, duplicates, outliers, proposed filling methods, and future standard mapping. The OpenAI planner reads the file on each planning call and records its SHA-256 in API-call metadata. Restarting a pending review does not retroactively update an existing plan. The UI also displays the instructions in an expander. This is a project instructions file, not an installed personal ChatGPT skill.
+
+**Executable rules live in Python and the JSON contracts.** Offline mode does not interpret Markdown instructions. Editing SKILL.md can guide the LLM's choices and rationale, but cannot add tools, bypass approval, or implement imputation. Mean/median filling, blank-to-Unknown filling, dropping incomplete rows/columns, lookup filling, MICE/ML imputation, cross-table reconciliation, and OMOP/CDISC mapping are not implemented. The current agent normalizes missing tokens to null and leaves values unresolved for review. Literal Unknown remains unchanged unless an explicit category map replaces it.
+
+The missingness panel reports configured null-token counts/rates and literal Unknown counts separately. A rate strictly above 20% triggers review; it does not automatically delete or fill a field. Living patients' blank death dates are structurally not applicable. SSN and medication notes are intentionally absent and must not be fabricated.
+
+The original **Synthetic RWE sample** remains available as a 10-row formatting fixture. It uses `DEFAULT_CONTRACT` with `patient_id`, `age`, `sex`, `admission_date`, `discharge_date`, and `total_cost`. Approving all its tools yields 8 rows; leaving duplicate removal unapproved preserves all 10. For uploaded CSVs, edit the contract to match their schema.
 
 To see a second review pass, use two otherwise identical rows whose only difference is leading whitespace, with no initial exact duplicates. First approve trimming; the next profile exposes a duplicate and asks for a new approval. Declined actions remain blocked for that run and are listed as remaining opportunities.
 
@@ -112,7 +126,7 @@ To see a second review pass, use two otherwise identical rows whose only differe
 python -m unittest -v
 ```
 
-**19 tests** cover real LangGraph interrupts, approval/resume, cancellation, a second approval round, subset execution, blocked duplicate removal, reversible audit logs, exact numeric precision, identifier protection, clinical findings, malformed CSV, allowlist rejection, mocked structured API planning, text-safe workbook export, and Streamlit app interactions using `AppTest`.
+The test suite covers the three 500-row demo inputs, matching contracts, missingness thresholds, Unknown preservation, skill loading, and the existing real LangGraph interrupts, approval/resume, cancellation, a second approval round, subset execution, blocked duplicate removal, reversible audit logs, exact numeric precision, identifier protection, clinical findings, malformed CSV, allowlist rejection, mocked structured API planning, text-safe workbook export, and Streamlit app interactions using `AppTest`.
 
 The graph and offline path were executed with **LangGraph 1.2.19** and **Streamlit 1.66.1**. Live OpenAI connectivity and model plan quality require your configured API key and have not been tested against a real provider in this build. AppTest checks app behavior, not rendered browser appearance. This prototype does not establish production accuracy, efficiency gains, regulatory compliance or ROI.
 
@@ -131,8 +145,11 @@ The graph and offline path were executed with **LangGraph 1.2.19** and **Streaml
 - `agent.py` — actual LangGraph, human interrupt, structured planner and conditional loop.
 - `cleaning.py` — CSV ingestion, contract checks, deterministic tools and quality checks.
 - `exporting.py` — text-safe Excel review workbook.
-- `sample_rwe.csv` — fictional development fixture.
-- `test_cleaning.py`, `test_app.py` — graph, tool, export and interface tests.
+- `data/demo/*.csv`, `data/demo/manifest.json` — the three 500-row inputs and fixture metadata.
+- `contracts/*.json`, `demo_data.py` — executable per-table contracts and demo loader.
+- `SKILL.md` — editable planning instructions loaded by the LLM planner.
+- `sample_rwe.csv` — original 10-row development fixture.
+- `test_cleaning.py`, `test_app.py`, `test_demo_data.py` — graph, tool, export and interface tests.
 - `requirements.txt`, `.env.example`, `.streamlit/config.toml` — setup.
 
 ## Official technical references

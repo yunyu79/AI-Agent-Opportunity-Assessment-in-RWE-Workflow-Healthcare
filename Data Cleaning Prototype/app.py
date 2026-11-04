@@ -12,7 +12,8 @@ import pandas as pd
 import streamlit as st
 from exporting import excel_bundle
 
-from agent import build_agent, initial_state, resume_agent
+from agent import build_agent, initial_state, resume_agent, load_skill
+from demo_data import DATASETS, LEGACY_SAMPLE, contract_for_source, demo_input
 from cleaning import DEFAULT_CONTRACT, ROW, csv_bytes, data_hash, load_csv
 
 ROOT = Path(__file__).resolve().parent
@@ -30,14 +31,14 @@ def display_rows(rows):
 
 with st.sidebar:
     st.header('1 · Choose data')
-    source = st.radio('Dataset',['Synthetic RWE sample','Upload CSV'])
+    source = st.radio('Dataset',list(DATASETS) + [LEGACY_SAMPLE,'Upload CSV'])
     uploaded = st.file_uploader('UTF-8 CSV',type=['csv'],disabled=source!='Upload CSV')
     mode = st.selectbox('Planner',['Offline rules','OpenAI planner'])
     model = st.text_input('Model',value=os.environ.get('OPENAI_MODEL','gpt-4.1-mini'),disabled=mode!='OpenAI planner')
     consent = st.checkbox('Allow sending column names, aggregate counts and the contract to OpenAI.',disabled=mode!='OpenAI planner')
     st.caption('Patient rows and sample cell values are excluded from the planner request. No API key is entered or displayed here.')
     with st.expander('Edit data contract'):
-        contract_text = st.text_area('Contract JSON',value=json.dumps(DEFAULT_CONTRACT,indent=2),height=400)
+        contract_text = st.text_area('Contract JSON',value=json.dumps(contract_for_source(source),indent=2),height=400,key='contract-'+source)
     start = st.button('Profile and propose plan',type='primary',width='stretch')
     reset = st.button('Clear current run',width='stretch')
     st.caption('In-memory checkpoints only. Export before restarting or clearing the run.')
@@ -48,7 +49,9 @@ if reset:
 
 if start:
     try:
-        if source=='Synthetic RWE sample':
+        if source in DATASETS:
+            data,filename,_=demo_input(DATASETS[source])
+        elif source==LEGACY_SAMPLE:
             data=(ROOT/'sample_rwe.csv').read_bytes()
             filename='sample_rwe.csv'
         elif uploaded:
@@ -64,7 +67,7 @@ if start:
         config={'configurable':{'thread_id':str(uuid.uuid4())},'recursion_limit':30}
         st.session_state.run={'graph':graph,'config':config,'source_hash':data_hash(data),
                               'source_bytes':data,'filename':filename,'started_at':datetime.now(timezone.utc).isoformat(),
-                              'started_clock':time.monotonic(),'is_sample':source=='Synthetic RWE sample','error':None}
+                              'started_clock':time.monotonic(),'is_sample':source!='Upload CSV','error':None}
         with st.spinner('Profiling and preparing a reviewable plan…'):
             graph.invoke(state,config)
             if not graph.get_state(config).next:
@@ -73,12 +76,29 @@ if start:
         if 'run' in st.session_state: st.session_state.run['error']=str(exc)
         else: st.error(str(exc))
 
+with st.expander('Agent instructions — SKILL.md'):
+    skill_text,skill_hash=load_skill()
+    st.markdown(skill_text)
+    st.caption('Edit SKILL.md in the project folder. OpenAI planning reads it on each call; offline rules follow the JSON contract. Filling and standard mapping tools are not implemented.')
+
 run=st.session_state.get('run')
 if not run:
-    st.subheader('Start with the included synthetic dataset')
-    st.write('The sample contains inconsistent categories, whitespace, missing values, duplicate rows, invalid dates and implausible values. Review the proposed actions before applying them.')
-    rows,_=load_csv((ROOT/'sample_rwe.csv').read_bytes())
-    st.dataframe(display_rows(rows),hide_index=True,width='stretch')
+    st.subheader('Preview selected input')
+    if source in DATASETS:
+        preview_data,preview_name,_=demo_input(DATASETS[source])
+    elif source==LEGACY_SAMPLE:
+        preview_data,preview_name=(ROOT/'sample_rwe.csv').read_bytes(),'sample_rwe.csv'
+    elif uploaded:
+        preview_data,preview_name=uploaded.getvalue(),uploaded.name
+    else:
+        st.write('Upload a CSV, or choose one of the three 500-row demonstrations.')
+        st.stop()
+    try:
+        rows,_=load_csv(preview_data)
+        st.caption(f'{preview_name}: {len(rows)} source rows. Showing the first 20; the agent processes the entire selected file.')
+        st.dataframe(display_rows(rows[:20]),hide_index=True,width='stretch')
+    except ValueError as exc:
+        st.error(str(exc))
     st.stop()
 
 if run['error']: st.error(run['error'])
@@ -93,6 +113,17 @@ cols=st.columns(3)
 cols[0].metric('Original rows',len(state['original']))
 cols[1].metric('Current rows',len(state['rows']))
 cols[2].metric('Audited changes',len(state.get('audit',[])))
+
+with st.expander('Missingness by column',expanded=True):
+    report=state['profile']
+    st.dataframe(pd.DataFrame([
+        {'column':c,'missing_count':report['missing_by_column'][c],
+         'missing_percent':report['missing_percent_by_column'][c],
+         'literal_unknown_count':report['unknown_by_column'][c],
+         'review_over_20_percent':c in report['high_missing_columns']}
+        for c in state['columns']
+    ]),hide_index=True,width='stretch')
+    st.caption('Missing counts follow the configured null tokens; Unknown is counted separately unless explicitly configured as missing. Over 20% triggers review, not automatic filling or exclusion. Structural blanks such as death_date for living patients remain valid.')
 
 if snapshot.next==('human_review',) and not run['error']:
     st.subheader('2 · Review the proposed plan')

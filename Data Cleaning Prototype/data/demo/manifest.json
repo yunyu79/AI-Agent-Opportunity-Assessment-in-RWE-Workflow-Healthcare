@@ -1,0 +1,38 @@
+{
+  "description": "Synthetic RWE inputs; 500 data rows per file. No real patient data. Missingness settings are demonstration conventions, not real-world prevalence.",
+  "age_reference_date": "2026-01-01",
+  "files": {
+    "patient.csv": {
+      "sha256": "9d3dd26cd65a30d4bb15e0a98220937433a0259bd05a4f5a2126526876609799",
+      "rows": 500,
+      "high_missing_demo_column": "race",
+      "blank_count": 150,
+      "literal_unknown_count": {
+        "race": 5
+      },
+      "exact_duplicate_excess": 2,
+      "age_outlier_values": [
+        240,
+        -5
+      ]
+    },
+    "medication.csv": {
+      "sha256": "f5a8843bf22135f6b38212e014fd0baa2c442dd637e23bbd8a9c610265efdc2b",
+      "rows": 500,
+      "high_missing_demo_column": "paid_amount",
+      "blank_count": 125,
+      "literal_unknown_count": {
+        "route": 5
+      },
+      "exact_duplicate_excess": 0
+    },
+    "procedure.csv": {
+      "sha256": "9523b260562be149ddd25ad9ad7c83ce4c23b9a975fcff7e3ac3192453ea33ec",
+      "rows": 500,
+      "high_missing_demo_column": "description",
+      "blank_count": 125,
+      "literal_unknown_count": {},
+      "exact_duplicate_excess": 1
+    }
+  }
+}

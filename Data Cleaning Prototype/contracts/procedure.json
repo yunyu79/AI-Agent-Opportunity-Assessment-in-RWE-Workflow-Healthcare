@@ -1,0 +1,33 @@
+{
+  "required_columns": [
+    "patient_id",
+    "encounter_id",
+    "procedure_date",
+    "code_type",
+    "code",
+    "description"
+  ],
+  "identifier_columns": [
+    "patient_id",
+    "encounter_id",
+    "code",
+    "physician_npi"
+  ],
+  "missing_tokens": [
+    "",
+    "NA",
+    "N/A",
+    "NULL"
+  ],
+  "numeric_columns": [],
+  "date_columns": [
+    "procedure_date"
+  ],
+  "category_maps": {
+    "code_type": {
+      "SYNTHETIC": "SYNTHETIC"
+    }
+  },
+  "numeric_ranges": {},
+  "date_order_pairs": []
+}

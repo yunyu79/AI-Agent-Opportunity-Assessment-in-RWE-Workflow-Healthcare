@@ -1,5 +1,6 @@
 """LangGraph planner -> human interrupt -> allowlisted tools -> validation loop."""
 import copy
+import hashlib
 import json
 import operator
 import os
@@ -7,6 +8,7 @@ import time
 import urllib.error
 import urllib.request
 from typing import Annotated, TypedDict
+from pathlib import Path
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -43,6 +45,14 @@ class State(TypedDict, total=False):
     remaining_actions: list[dict]
 
 
+def load_skill():
+    """Read repository-owned instructions; never derive instructions from CSV data."""
+    text = Path(__file__).with_name('SKILL.md').read_text(encoding='utf-8')
+    if not text.strip() or len(text) > 30000:
+        raise ValueError('SKILL.md must contain between 1 and 30,000 characters.')
+    return text, hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
 def choose_plan(summary, candidates, contract, model):
     """Sends counts, headers and explicit contract only; never patient rows/sample values."""
     key = os.environ.get('OPENAI_API_KEY')
@@ -52,6 +62,8 @@ def choose_plan(summary, candidates, contract, model):
 Select only candidate action IDs that are justified by the given contract and profile. Never invent actions, rewrite patient values, change thresholds, impute missing values or execute code.
 Exact duplicate removal may discard legitimate identical events: include it only as an explicitly reviewable proposal. A human will approve individual actions.
 Select candidate IDs and explain the plan concisely. A later pass may propose newly exposed duplicates. You can return no actions if uncertain.'''
+    skill_text,skill_hash = load_skill()
+    system += '\n\nRepository-owned planning instructions (subject to the tool limits above):\n' + skill_text
     safe_summary = {k:v for k,v in summary.items() if k != 'candidates'}
     payload = {'model': model, 'store': False,
                'input': [{'role':'system','content':system},
@@ -80,7 +92,7 @@ Select candidate IDs and explain the plan concisely. A later pass may propose ne
         raise ValueError('Model requested an unknown or duplicate action. No plan accepted.')
     chosen = [c for c in candidates if c['id'] in choice.selected_ids]
     return chosen,choice.rationale,{'model':model,'api_seconds':round(time.monotonic()-start,3),
-                                   'usage':body.get('usage',{}),'prompt_version':'cleaning-0.1'}
+                                   'usage':body.get('usage',{}),'prompt_version':'cleaning-0.2','skill_sha256':skill_hash}
 
 
 def build_agent(planner=None):

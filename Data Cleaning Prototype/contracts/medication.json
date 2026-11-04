@@ -1,0 +1,72 @@
+{
+  "required_columns": [
+    "patient_id",
+    "encounter_id",
+    "request_date",
+    "medication_name",
+    "paid_amount"
+  ],
+  "identifier_columns": [
+    "patient_id",
+    "encounter_id",
+    "ndc",
+    "rx_norm",
+    "physician_npi"
+  ],
+  "missing_tokens": [
+    "",
+    "NA",
+    "N/A",
+    "NULL"
+  ],
+  "numeric_columns": [
+    "dose",
+    "quantity",
+    "refills",
+    "duration",
+    "paid_amount"
+  ],
+  "date_columns": [
+    "request_date",
+    "filled_date",
+    "paid_date"
+  ],
+  "category_maps": {
+    "route": {
+      "PO": "PO",
+      "Unknown": "Unknown"
+    },
+    "request_status": {
+      "active": "active",
+      "completed": "completed"
+    }
+  },
+  "numeric_ranges": {
+    "dose": [
+      0,
+      null
+    ],
+    "quantity": [
+      0,
+      null
+    ],
+    "refills": [
+      0,
+      null
+    ],
+    "duration": [
+      0,
+      null
+    ]
+  },
+  "date_order_pairs": [
+    [
+      "request_date",
+      "filled_date"
+    ],
+    [
+      "filled_date",
+      "paid_date"
+    ]
+  ]
+}

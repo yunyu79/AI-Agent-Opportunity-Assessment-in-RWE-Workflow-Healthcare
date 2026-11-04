@@ -1,0 +1,60 @@
+{
+  "required_columns": [
+    "patient_id",
+    "birth_date",
+    "age",
+    "gender",
+    "race"
+  ],
+  "identifier_columns": [
+    "patient_id",
+    "zip_code",
+    "phone",
+    "email",
+    "ssn"
+  ],
+  "missing_tokens": [
+    "",
+    "NA",
+    "N/A",
+    "NULL"
+  ],
+  "numeric_columns": [
+    "age",
+    "death_flag"
+  ],
+  "date_columns": [
+    "birth_date",
+    "death_date"
+  ],
+  "category_maps": {
+    "gender": {
+      "male": "male",
+      "female": "female",
+      "unknown": "Unknown"
+    },
+    "race": {
+      "White": "White",
+      "Black or African American": "Black or African American",
+      "Asian": "Asian",
+      "Other Race": "Other Race",
+      "Unknown": "Unknown"
+    }
+  },
+  "numeric_ranges": {
+    "age": [
+      0,
+      120
+    ],
+    "death_flag": [
+      0,
+      1
+    ]
+  },
+  "date_order_pairs": [
+    [
+      "birth_date",
+      "death_date"
+    ]
+  ]
+}

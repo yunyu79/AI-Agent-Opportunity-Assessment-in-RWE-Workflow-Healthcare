@@ -13,6 +13,7 @@ class AppTests(unittest.TestCase):
     def test_streamlit_review_and_cancel(self):
         app=AppTest.from_file(str(Path(__file__).with_name('app.py')),default_timeout=20).run()
         self.assertEqual(len(app.exception),0)
+        app.radio[0].set_value('Synthetic RWE sample').run()
         next(b for b in app.button if b.label=='Profile and propose plan').click().run()
         self.assertEqual(len(app.exception),0)
         run=app.session_state['run']
@@ -27,6 +28,7 @@ class AppTests(unittest.TestCase):
 
     def test_streamlit_approval_executes_selected_tools(self):
         app=AppTest.from_file(str(Path(__file__).with_name('app.py')),default_timeout=20).run()
+        app.radio[0].set_value('Synthetic RWE sample').run()
         next(b for b in app.button if b.label=='Profile and propose plan').click().run()
         self.assertNotIn('drop_exact_duplicates',app.multiselect[0].value)
         next(b for b in app.button if b.label=='Apply selected actions').click().run()
