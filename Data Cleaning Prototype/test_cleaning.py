@@ -157,7 +157,7 @@ class CleaningTests(unittest.TestCase):
                     payload=json.loads(call.call_args.args[0].data)
                     self.assertNotIn('001200.50',json.dumps(payload))
                     self.assertTrue(payload['text']['format']['strict'])
-                    self.assertIn('name: clean-rwe-demo-data',payload['input'][0]['content'])
+                    self.assertIn(__import__('agent').load_skill()[0],payload['input'][0]['content'])
                     self.assertEqual(len(meta['skill_sha256']),64)
                     self.assertEqual(meta['usage']['input_tokens'],100)
 
@@ -169,3 +169,4 @@ class CleaningTests(unittest.TestCase):
 
 
 if __name__=='__main__': unittest.main()
+
