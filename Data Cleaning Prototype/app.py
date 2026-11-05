@@ -12,6 +12,7 @@ import pandas as pd
 import streamlit as st
 from exporting import excel_bundle
 from review import review_tables, review_workbook, KEEP
+from project_store import save_project, load_project, close_project
 
 from agent import build_agent, initial_state, resume_agent, load_skill
 from demo_data import DATASETS, LEGACY_SAMPLE, contract_for_source, demo_input
@@ -19,6 +20,34 @@ from cleaning import DEFAULT_CONTRACT, ROW, csv_bytes, data_hash, load_csv
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title='RWE Data Cleaning Agent',page_icon='🧹',layout='wide')
+# A project token in the URL survives browser refresh and reconnect.
+project_id=st.query_params.get('project')
+if not project_id or len(project_id)!=32 or any(c not in '0123456789abcdef' for c in project_id):
+    project_id=uuid.uuid4().hex
+    st.query_params['project']=project_id
+if st.session_state.get('_loaded_project')!=project_id:
+    saved=load_project(project_id)
+    st.session_state['_saved_settings']=saved['settings'] if saved else {}
+    for key,value in st.session_state['_saved_settings'].items():
+        if key!='saved_upload':st.session_state[key]=value
+    if saved and saved['run']: st.session_state['run']=saved['run']
+    st.session_state['_loaded_project']=project_id
+
+
+def persist():
+    settings=dict(st.session_state.get('_saved_settings',{}))
+    keys=['study_objectives','dataset','planner','model','consent']
+    keys += [k for k in st.session_state if k.startswith(('contract-','critical-','noncritical-','review_note-'))]
+    for key in keys:
+        if key in st.session_state: settings[key]=st.session_state[key]
+    upload=st.session_state.get('upload_csv')
+    if upload:
+        import base64
+        settings['saved_upload']={'name':upload.name,'base64':base64.b64encode(upload.getvalue()).decode()}
+    st.session_state['_saved_settings']=settings
+    save_project(project_id,settings,st.session_state.get('run'))
+
+
 st.title('RWE Data Cleaning Agent')
 st.caption('LangGraph · profile → plan → human review → cleaning tools → validation')
 st.info('Use synthetic or de-identified data. Offline mode uses deterministic rules; OpenAI mode uses an LLM to select among allowed tools. Every change requires your approval.')
@@ -32,21 +61,23 @@ def display_rows(rows):
 
 with st.sidebar:
     st.header('1 · Study and data')
-    objectives = st.text_area('Study objectives (required for a new project)', key='study_objectives')
-    source = st.radio('Dataset',list(DATASETS) + [LEGACY_SAMPLE,'Upload CSV'])
-    uploaded = st.file_uploader('UTF-8 CSV',type=['csv'],disabled=source!='Upload CSV')
-    mode = st.selectbox('Planner',['Offline rules','OpenAI planner'])
-    model = st.text_input('Model',value=os.environ.get('OPENAI_MODEL','gpt-4.1-mini'),disabled=mode!='OpenAI planner')
-    consent = st.checkbox('Allow sending column names, aggregate counts and the contract to OpenAI.',disabled=mode!='OpenAI planner')
+    objectives = st.text_area('Study objectives (required for a new project)', key='study_objectives',on_change=persist)
+    source = st.radio('Dataset',list(DATASETS) + [LEGACY_SAMPLE,'Upload CSV'],key='dataset',on_change=persist)
+    uploaded = st.file_uploader('UTF-8 CSV',type=['csv'],disabled=source!='Upload CSV',key='upload_csv',on_change=persist)
+    mode = st.selectbox('Planner',['Offline rules','OpenAI planner'],key='planner',on_change=persist)
+    model = st.text_input('Model',value=os.environ.get('OPENAI_MODEL','gpt-4.1-mini'),disabled=mode!='OpenAI planner',key='model',on_change=persist)
+    consent = st.checkbox('Allow sending column names, aggregate counts and the contract to OpenAI.',disabled=mode!='OpenAI planner',key='consent',on_change=persist)
     st.caption('Patient rows and sample cell values are excluded from the planner request. No API key is entered or displayed here.')
     with st.expander('Edit data contract'):
-        contract_text = st.text_area('Contract JSON',value=json.dumps(contract_for_source(source),indent=2),height=400,key='contract-'+source)
+        contract_text = st.text_area('Contract JSON',value=json.dumps(contract_for_source(source),indent=2),height=400,key='contract-'+source,on_change=persist)
     start = st.button('Profile and propose plan',type='primary',width='stretch')
-    reset = st.button('Clear current run',width='stretch')
-    st.caption('In-memory checkpoints only. Export before restarting or clearing the run.')
+    reset = st.button('Close project',width='stretch')
+    st.caption('Settings and progress are saved locally until Close project. Bookmark this page to reopen this project after restarting. Saved data is in .local_projects (or CLEANING_PROJECT_DIR).')
 
 if reset:
-    st.session_state.pop('run',None)
+    close_project(project_id)
+    st.session_state.clear()
+    st.query_params.clear()
     st.rerun()
 
 if start:
@@ -60,6 +91,10 @@ if start:
             filename='sample_rwe.csv'
         elif uploaded:
             data,filename=uploaded.getvalue(),uploaded.name
+        elif source=='Upload CSV' and st.session_state['_saved_settings'].get('saved_upload'):
+            import base64
+            stored=st.session_state['_saved_settings']['saved_upload']
+            data,filename=base64.b64decode(stored['base64']),stored['name']
         else:
             raise ValueError('Select a CSV file first.')
         if mode=='OpenAI planner' and not consent:
@@ -94,7 +129,12 @@ if not run:
         preview_data,preview_name=(ROOT/'sample_rwe.csv').read_bytes(),'sample_rwe.csv'
     elif uploaded:
         preview_data,preview_name=uploaded.getvalue(),uploaded.name
+    elif source=='Upload CSV' and st.session_state['_saved_settings'].get('saved_upload'):
+        import base64
+        stored=st.session_state['_saved_settings']['saved_upload']
+        preview_data,preview_name=base64.b64decode(stored['base64']),stored['name']
     else:
+        persist()
         st.write('Upload a CSV, or choose one of the three 500-row demonstrations.')
         st.stop()
     try:
@@ -103,6 +143,7 @@ if not run:
         st.dataframe(display_rows(rows[:20]),hide_index=True,width='stretch')
     except ValueError as exc:
         st.error(str(exc))
+    persist()
     st.stop()
 
 if run['error']: st.error(run['error'])
@@ -128,15 +169,17 @@ if snapshot.next==('human_review',) and not run['error']:
     st.caption('Review each column below. Click a Selected action cell to choose a treatment; then confirm. The suggested plan does not execute automatically.')
     with st.expander('Study importance and detailed settings'):
         st.write(run['objectives'])
-        critical = st.multiselect('Critical variables for these objectives',state['columns'],key='critical-'+run['config']['configurable']['thread_id'])
-        noncritical = st.multiselect('Confirmed non-critical variables',[c for c in state['columns'] if c not in critical],key='noncritical-'+run['config']['configurable']['thread_id'])
+        critical = st.multiselect('Critical variables for these objectives',state['columns'],key='critical-'+project_id,on_change=persist)
+        noncritical = st.multiselect('Confirmed non-critical variables',[c for c in state['columns'] if c not in critical],key='noncritical-'+project_id,on_change=persist)
         st.caption('Other variables remain unconfirmed. Review structural missingness and joint sample loss before deletion; simple imputation understates uncertainty.')
     importance={c:('Critical' if c in critical else 'Non-critical' if c in noncritical else 'Unconfirmed') for c in state['columns']}
     summary, review = review_tables(state,importance)
-    visible=[{'column that contains any data issue':r['column'],'Issue':r['issue'],'Reasons for the data issues':r['reason'],'affected_cells_estimate':r['affected_cells_estimate'],'percentage of missing':r['missing_percent'],'Rule':r['rule'],'Exact suggested plan':r['suggested_plan'],'Selected action':r['selected_action']} for r in review]
+    visible=[{'column that contains any data issue':r['column'],'Issue':r['issue'],'Reasons for the data issues':r['reason'],'affected_cells_estimate':r['affected_cells_estimate'],'percentage of missing':r['missing_percent'],'Rule':r['rule'],'Exact suggested plan':r['suggested_plan'],'Selected action':run.get('draft_choices',{}).get(str(state['round']),{}).get(r['id'],r['selected_action'])} for r in review]
     all_options=list(dict.fromkeys(o for r in review for o in r['options']))
-    edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',disabled=[c for c in visible[0] if c!='Selected action'] if visible else [],column_config={'Selected action':st.column_config.SelectboxColumn(options=all_options,required=True),'percentage of missing':st.column_config.NumberColumn(format='%.2f%%')},key='plan-'+run['config']['configurable']['thread_id']+'-'+str(state['round'])) if visible else pd.DataFrame()
+    edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',disabled=[c for c in visible[0] if c!='Selected action'] if visible else [],column_config={'Selected action':st.column_config.SelectboxColumn(options=all_options,required=True),'percentage of missing':st.column_config.NumberColumn(format='%.2f%%')},key='plan-'+project_id+'-'+str(state['round'])) if visible else pd.DataFrame()
     choices={r['id']:edited.iloc[i]['Selected action'] for i,r in enumerate(review)}
+    run.setdefault('draft_choices',{})[str(state['round'])]=choices
+    persist()
     invalid=[r['column'] for r in review if choices[r['id']] not in r['options']]
     if invalid: st.error('Selected treatment is not applicable to: '+', '.join(invalid)+'. Choose a valid option from the per-column list below.')
     with st.expander('Available options for each issue'):
@@ -147,8 +190,8 @@ if snapshot.next==('human_review',) and not run['error']:
     loss=sum(any(r['column'] in row and (row[r['column']] is None or str(row[r['column']]).strip().casefold() in {v.strip().casefold() for v in state['contract']['missing_tokens']}) for r in review if choices[r['id']]=='Complete-case: delete rows missing this column') for row in state['rows'])
     st.write(f'Combined complete-case row loss for current choices: {loss} / {len(state["rows"])}.')
     selected=[r['id'] for r in review if choices[r['id']]=='Apply suggested normalization']
+    note=st.text_input('Decision rationale / reviewer note',key='review_note-'+project_id+'-'+str(state['round']),on_change=persist)
     with st.form('review-'+str(state['round'])):
-        note=st.text_input('Decision rationale / reviewer note')
         left,right=st.columns(2)
         apply=left.form_submit_button('Apply selected actions',type='primary',disabled=bool(invalid))
         cancel=right.form_submit_button('Cancel further cleaning')
@@ -159,6 +202,7 @@ if snapshot.next==('human_review',) and not run['error']:
                 resume_agent(run['graph'],run['config'],selected if apply else [],cancel=bool(cancel),treatments=choices if apply else {},importance=importance)
             if not run['graph'].get_state(run['config']).next:
                 run['finished_seconds']=round(time.monotonic()-run['started_clock'],2)
+            persist()
             st.rerun()
         except Exception as exc:
             run['error']=str(exc)
@@ -215,3 +259,6 @@ if not snapshot.next and not run['error']:
     b.download_button('Review workbook',excel_bundle(state,metadata),'cleaning_review.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',width='stretch')
     c.download_button('Full audit bundle',bundle.getvalue(),'cleaning_audit.zip','application/zip',width='stretch')
     st.caption('The audit bundle contains the original input and all record-level changes. CSV preserves source strings; the workbook stores strings as text for spreadsheet review. Nulls export as empty CSV cells and remain distinguishable in JSON.')
+
+# Save results/settings on each completed rerun, including completed and cancelled runs.
+persist()

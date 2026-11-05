@@ -49,7 +49,7 @@ def review_tables(state, importance=None):
                 'M3':'Assess mechanism and auxiliary variables; compare complete-case with suitable imputation / MICE. Retain until assessment is complete.',
                 'M4':'Assess recoverability first; compare exclusion, MICE, validated ML or proxy. Preserve critical variables pending assessment.',
             }[rule]
-            review.append(dict(id='missing:'+col,column=col,issue='Missing values',reason=f'{len(missing_rows)} of {len(rows)} values match configured missing markers; root cause is not established.',affected_cells_estimate=len(missing_rows),missing_percent=pct,rule=rule,importance=role,suggested_plan=suggestion,selected_action=KEEP,options=options))
+            review.append(dict(id='missing:'+col,column=col,issue='Missing values',reason=f'{len(missing_rows)} of {len(rows)} values match configured missing markers; root cause is not established.',affected_cells_estimate=len(missing_rows),missing_percent=pct,rule=rule,importance=role,suggested_plan=suggestion+' Examine reasons; MCAR/MAR/MNAR is uncertain until supported by evidence. Present suitable removal, imputation, MICE, ML and proxy alternatives and obtain approval before row changes.',selected_action=KEEP,options=options))
         for action in state.get('plan',[]):
             if action['column']==col and action['tool']!='normalize_missing':
                 review.append(dict(id=action['id'],column=col,issue='Format inconsistency',reason=action['reason'],affected_cells_estimate=action['affected_cells_estimate'],missing_percent=pct,rule='Explicit contract',importance=importance.get(col,'Unconfirmed'),suggested_plan=action['reason'],selected_action=KEEP,options=[KEEP,'Apply suggested normalization']))
