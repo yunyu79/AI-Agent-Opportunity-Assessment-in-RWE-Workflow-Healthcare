@@ -16,6 +16,7 @@ from langgraph.types import Command, interrupt
 from pydantic import BaseModel, ConfigDict
 
 from cleaning import execute, profile, quality_issues, validate_contract
+from review import review_tables, validate_choices, execute_treatments
 
 
 class Choice(BaseModel):
@@ -43,6 +44,9 @@ class State(TypedDict, total=False):
     calls: Annotated[list[dict], operator.add]
     issues: list[dict]
     remaining_actions: list[dict]
+    treatments: dict
+    importance: dict
+    pending_methods: list[dict]
 
 
 def load_skill():
@@ -127,18 +131,26 @@ def build_agent(planner=None):
             raise ValueError('Review must provide approved_ids and an optional cancel boolean.')
         if answer.get('cancel'):
             return {'approved':[],'status':'cancelled','trace':[{'node':'human_review','decision':'cancel'}]}
+        importance = answer.get('importance', {})
+        if not isinstance(importance, dict) or any(k not in state['columns'] or v not in ['Critical','Non-critical','Unconfirmed'] for k,v in importance.items()):
+            raise ValueError('Invalid variable importance choices.')
+        _, review = review_tables(state, importance)
+        treatments = validate_choices(review, answer.get('treatments', {}))
         selected = answer.get('approved_ids',[])
         allowed = {p['id'] for p in state['plan']}
         if not isinstance(selected,list) or any(not isinstance(x,str) for x in selected) or len(set(selected)) != len(selected) or any(x not in allowed for x in selected):
             raise ValueError('Only distinct IDs from this pending plan can be approved.')
         approved = [p['id'] for p in state['plan'] if p['id'] in selected]
         blocked = list(set(state.get('blocked',[])) | (allowed-set(approved)))
-        return {'approved':approved,'blocked':blocked,'status':'approved',
+        return {'approved':approved,'blocked':blocked,'status':'approved','treatments':treatments,'importance':importance,
                 'trace':[{'node':'human_review','round':state['round'],'approved':approved}]}
 
     def apply_node(state):
         rows,audit = execute(state['rows'],state['columns'],state['contract'],state['plan'],state['approved'],state['round'])
-        return {'rows':rows,'audit':audit,'trace':[{'node':'apply_tools','round':state['round'],'changes':len(audit)}]}
+        _, review = review_tables(state, state.get('importance', {}))
+        rows, columns, treatment_audit, pending = execute_treatments(rows, state['columns'], state['contract'], review, state.get('treatments', {}))
+        audit += treatment_audit
+        return {'rows':rows,'columns':columns,'pending_methods':state.get('pending_methods', [])+pending,'audit':audit,'trace':[{'node':'apply_tools','round':state['round'],'changes':len(audit)}]}
 
     def validate_node(state):
         report = profile(state['rows'],state['columns'],state['contract'])
@@ -148,7 +160,7 @@ def build_agent(planner=None):
     def finish_node(state):
         issues = quality_issues(state['rows'],state['columns'],state['contract'])
         remaining = profile(state['rows'],state['columns'],state['contract'])['candidates']
-        status = 'cancelled' if state.get('status') == 'cancelled' else ('completed_with_findings' if issues or remaining else 'completed')
+        status = 'cancelled' if state.get('status') == 'cancelled' else ('completed_with_findings' if issues or remaining or state.get('pending_methods') else 'completed')
         return {'issues':issues,'remaining_actions':remaining,'status':status,'trace':[{'node':'finish','status':status}]}
 
     def after_plan(state):
@@ -183,7 +195,7 @@ def initial_state(rows, columns, contract, mode='Offline rules', model='gpt-4.1-
             'mode':mode,'model':model,'round':0,'blocked':[],'audit':[],'trace':[],'calls':[],'status':'new'}
 
 
-def resume_agent(graph, config, approved_ids=None, cancel=False):
+def resume_agent(graph, config, approved_ids=None, cancel=False, treatments=None, importance=None):
     snapshot = graph.get_state(config)
     if snapshot.next != ('human_review',):
         raise ValueError('This run is not waiting for review; start a new run or inspect its status.')
@@ -191,5 +203,5 @@ def resume_agent(graph, config, approved_ids=None, cancel=False):
     approved_ids = approved_ids or []
     if not isinstance(approved_ids,list) or any(not isinstance(i,str) for i in approved_ids) or len(set(approved_ids)) != len(approved_ids) or any(i not in pending for i in approved_ids):
         raise ValueError('Review action IDs do not match the pending plan.')
-    graph.invoke(Command(resume={'approved_ids':approved_ids,'cancel':cancel}),config)
+    graph.invoke(Command(resume={'approved_ids':approved_ids,'cancel':cancel,'treatments':treatments or {},'importance':importance or {}}),config)
     return graph.get_state(config)

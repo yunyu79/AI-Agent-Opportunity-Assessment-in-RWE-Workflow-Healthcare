@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from exporting import excel_bundle
+from review import review_tables, review_workbook, KEEP
 
 from agent import build_agent, initial_state, resume_agent, load_skill
 from demo_data import DATASETS, LEGACY_SAMPLE, contract_for_source, demo_input
@@ -30,7 +31,8 @@ def display_rows(rows):
 
 
 with st.sidebar:
-    st.header('1 · Choose data')
+    st.header('1 · Study and data')
+    objectives = st.text_area('Study objectives (required for a new project)', key='study_objectives')
     source = st.radio('Dataset',list(DATASETS) + [LEGACY_SAMPLE,'Upload CSV'])
     uploaded = st.file_uploader('UTF-8 CSV',type=['csv'],disabled=source!='Upload CSV')
     mode = st.selectbox('Planner',['Offline rules','OpenAI planner'])
@@ -49,6 +51,8 @@ if reset:
 
 if start:
     try:
+        if not objectives.strip():
+            raise ValueError('Enter the study objectives before proposing a plan.')
         if source in DATASETS:
             data,filename,_=demo_input(DATASETS[source])
         elif source==LEGACY_SAMPLE:
@@ -66,7 +70,7 @@ if start:
         graph=build_agent()
         config={'configurable':{'thread_id':str(uuid.uuid4())},'recursion_limit':30}
         st.session_state.run={'graph':graph,'config':config,'source_hash':data_hash(data),
-                              'source_bytes':data,'filename':filename,'started_at':datetime.now(timezone.utc).isoformat(),
+                              'objectives':objectives,'source_bytes':data,'filename':filename,'started_at':datetime.now(timezone.utc).isoformat(),
                               'started_clock':time.monotonic(),'is_sample':source!='Upload CSV','error':None}
         with st.spinner('Profiling and preparing a reviewable plan…'):
             graph.invoke(state,config)
@@ -79,7 +83,7 @@ if start:
 with st.expander('Agent instructions — SKILL.md'):
     skill_text,skill_hash=load_skill()
     st.markdown(skill_text)
-    st.caption('Edit SKILL.md in the project folder. OpenAI planning reads it on each call; offline rules follow the JSON contract. Filling and standard mapping tools are not implemented.')
+    st.caption('Edit SKILL.md in the project folder. OpenAI planning reads it on each call; offline rules follow the JSON contract. Mean, median, mode, complete-case and column exclusion run after approval. MICE, ML and proxy require further assessment.')
 
 run=st.session_state.get('run')
 if not run:
@@ -114,36 +118,45 @@ cols[0].metric('Original rows',len(state['original']))
 cols[1].metric('Current rows',len(state['rows']))
 cols[2].metric('Audited changes',len(state.get('audit',[])))
 
-with st.expander('Missingness by column',expanded=True):
-    report=state['profile']
-    st.dataframe(pd.DataFrame([
-        {'column':c,'missing_count':report['missing_by_column'][c],
-         'missing_percent':report['missing_percent_by_column'][c],
-         'literal_unknown_count':report['unknown_by_column'][c],
-         'review_over_20_percent':c in report['high_missing_columns']}
-        for c in state['columns']
-    ]),hide_index=True,width='stretch')
-    st.caption('Missing counts follow the configured null tokens; Unknown is counted separately unless explicitly configured as missing. Over 20% triggers review, not automatic filling or exclusion. Structural blanks such as death_date for living patients remain valid.')
+st.subheader('Data issue summary')
+st.caption('Affected cells count distinct source cells with detected issues; overlapping tool estimates are not added. Missing percentages use the full file row count.')
+summary, _ = review_tables(state)
+st.dataframe(pd.DataFrame(summary), hide_index=True, width='stretch', column_config={'percentage of missing':st.column_config.NumberColumn(format='%.2f%%')})
 
 if snapshot.next==('human_review',) and not run['error']:
     st.subheader('2 · Review the proposed plan')
-    st.write(state['rationale'])
-    plan=state['plan']
-    st.dataframe(pd.DataFrame(plan),hide_index=True,width='stretch')
-    st.caption('Counts estimate each action independently; overlapping actions may change fewer cells. Exact duplicate removal is optional: identical rows can still represent legitimate repeated events.')
-    options=[a['id'] for a in plan]
-    default=[a for a in options if a!='drop_exact_duplicates']
+    st.caption('Review each column below. Click a Selected action cell to choose a treatment; then confirm. The suggested plan does not execute automatically.')
+    with st.expander('Study importance and detailed settings'):
+        st.write(run['objectives'])
+        critical = st.multiselect('Critical variables for these objectives',state['columns'],key='critical-'+run['config']['configurable']['thread_id'])
+        noncritical = st.multiselect('Confirmed non-critical variables',[c for c in state['columns'] if c not in critical],key='noncritical-'+run['config']['configurable']['thread_id'])
+        st.caption('Other variables remain unconfirmed. Review structural missingness and joint sample loss before deletion; simple imputation understates uncertainty.')
+    importance={c:('Critical' if c in critical else 'Non-critical' if c in noncritical else 'Unconfirmed') for c in state['columns']}
+    summary, review = review_tables(state,importance)
+    visible=[{'column that contains any data issue':r['column'],'Issue':r['issue'],'Reasons for the data issues':r['reason'],'affected_cells_estimate':r['affected_cells_estimate'],'percentage of missing':r['missing_percent'],'Rule':r['rule'],'Exact suggested plan':r['suggested_plan'],'Selected action':r['selected_action']} for r in review]
+    all_options=list(dict.fromkeys(o for r in review for o in r['options']))
+    edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',disabled=[c for c in visible[0] if c!='Selected action'] if visible else [],column_config={'Selected action':st.column_config.SelectboxColumn(options=all_options,required=True),'percentage of missing':st.column_config.NumberColumn(format='%.2f%%')},key='plan-'+run['config']['configurable']['thread_id']+'-'+str(state['round'])) if visible else pd.DataFrame()
+    choices={r['id']:edited.iloc[i]['Selected action'] for i,r in enumerate(review)}
+    invalid=[r['column'] for r in review if choices[r['id']] not in r['options']]
+    if invalid: st.error('Selected treatment is not applicable to: '+', '.join(invalid)+'. Choose a valid option from the per-column list below.')
+    with st.expander('Available options for each issue'):
+        for r in review: st.write(r['column']+' · '+r['issue']+': '+ '; '.join(r['options']))
+    st.caption('MICE, ML and proxy are assessment choices: they preserve values and leave output provisional. This prototype does not execute these models. Numeric imputation is available only for validated numeric columns, never identifiers.')
+    st.download_button('Download review Excel form',review_workbook(summary,review,choices),'proposed_cleaning_plan.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    st.caption('Excel includes Summary and Review sheets with dropdowns. Confirm choices in this app; importing an edited workbook is not supported.')
+    loss=sum(any(r['column'] in row and (row[r['column']] is None or str(row[r['column']]).strip().casefold() in {v.strip().casefold() for v in state['contract']['missing_tokens']}) for r in review if choices[r['id']]=='Complete-case: delete rows missing this column') for row in state['rows'])
+    st.write(f'Combined complete-case row loss for current choices: {loss} / {len(state["rows"])}.')
+    selected=[r['id'] for r in review if choices[r['id']]=='Apply suggested normalization']
     with st.form('review-'+str(state['round'])):
-        selected=st.multiselect('Approved actions',options,default=default)
-        note=st.text_input('Reviewer note (optional)')
+        note=st.text_input('Decision rationale / reviewer note')
         left,right=st.columns(2)
-        apply=left.form_submit_button('Apply selected actions',type='primary')
+        apply=left.form_submit_button('Apply selected actions',type='primary',disabled=bool(invalid))
         cancel=right.form_submit_button('Cancel further cleaning')
     if apply or cancel:
         try:
-            run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'note':note,'at':datetime.now(timezone.utc).isoformat()})
+            run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'treatments':choices,'importance':importance,'note':note,'at':datetime.now(timezone.utc).isoformat()})
             with st.spinner('Applying approved tools and validating…'):
-                resume_agent(run['graph'],run['config'],selected if apply else [],cancel=bool(cancel))
+                resume_agent(run['graph'],run['config'],selected if apply else [],cancel=bool(cancel),treatments=choices if apply else {},importance=importance)
             if not run['graph'].get_state(run['config']).next:
                 run['finished_seconds']=round(time.monotonic()-run['started_clock'],2)
             st.rerun()
@@ -170,6 +183,8 @@ with right:
 with st.expander('Quality findings',expanded=bool(state.get('issues'))):
     if state.get('issues'): st.dataframe(pd.DataFrame(state['issues']),hide_index=True,width='stretch')
     else: st.write('Final checks run after approval. Missing data and implausible values are never imputed or corrected automatically.')
+with st.expander('Pending methods / assessments'):
+    st.json(state.get('pending_methods',[]))
 with st.expander('Remaining or declined cleaning opportunities'):
     st.json(state.get('remaining_actions',[]))
 with st.expander('Cell-level audit log'):
@@ -188,7 +203,7 @@ if not snapshot.next and not run['error']:
               'note':'Wall time includes waiting/review. It is not measured active human labor or ROI.'}
     report={'metadata':metadata,'contract':state['contract'],'original':state['original'],'cleaned':state['rows'],
             'audit':state.get('audit',[]),'issues':state.get('issues',[]),'trace':state.get('trace',[]),
-            'remaining_actions':state.get('remaining_actions',[]),
+            'remaining_actions':state.get('remaining_actions',[]),'pending_methods':state.get('pending_methods',[]),'study_objectives':run['objectives'],
             'api_calls':state.get('calls',[]),'reviews':run.get('reviews',[])}
     bundle=io.BytesIO()
     with zipfile.ZipFile(bundle,'w',zipfile.ZIP_DEFLATED) as z:

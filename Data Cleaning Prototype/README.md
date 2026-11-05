@@ -1,159 +1,22 @@
-# Data Cleaning Prototype
+# Data Cleaning Agent prototype
 
-A runnable **LangGraph data-cleaning agent prototype** for small synthetic or de-identified RWE tables. It profiles a CSV, selects an allowlisted cleaning plan, pauses for human approval, applies selected tools, and validates the result. New findings can trigger a second planning/review pass. Outputs include cleaned data, unresolved findings, original input and a cell-level audit trail.
+Install `requirements.txt` and run `streamlit run app.py` from this directory.
 
-## Run locally
+## Spreadsheet-style review
 
-Requires Python **3.11+**. From the repository root:
+1. Enter the study objectives and select a demo CSV or upload a CSV.
+2. Click **Profile and propose plan**. The **Data issue summary** appears before the review table, with `column`, `affected_cells_estimate`, and `percentage of missing`. Affected cells are distinct source cells with detected issues; overlapping tool estimates are not added.
+3. In **Review the proposed plan**, optionally mark critical and confirmed non-critical variables under Study importance. Other variables remain unconfirmed.
+4. Click a **Selected action** cell to open its treatment dropdown. The table shows issue columns, observed reasons, applicable missingness rule, affected-cell estimates, missing percentage, and an exact suggested plan. Invalid column/method combinations block approval. All choices default to keeping data.
+5. Download the Excel review form if useful. It includes Summary and Review sheets with per-row dropdowns. Confirm selections in the app: edited-workbook import is not implemented.
+6. Click **Apply selected actions** to execute supported choices. Original records remain available; transformations and explicit deletions are audited. Results, CSV and the full audit bundle are downloadable after review.
 
-```bash
-cd "Data Cleaning Prototype"
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m streamlit run app.py
-```
+## Treatment support
 
-On Windows, use `python` instead of `python3`, then activate with `.venv\Scripts\activate` in Command Prompt or `.venv\Scripts\Activate.ps1` in PowerShell.
+Executable after confirmation: existing contract-based normalization; column exclusion; complete-case deletion for selected variables (the UI previews combined row loss); numeric median/mean imputation; unique-mode imputation. Numeric methods require a configured numeric column with finite observed values and are excluded for identifiers. A tied mode cannot be applied. Missing markers follow the editable contract.
 
-Open **http://127.0.0.1:8501**. The supplied Streamlit configuration binds to loopback and disables usage statistics. Start the app from this folder so that configuration is loaded.
+MICE, ML prediction, proxy construction, investigation of domain findings and detailed duplicate review are labeled assessment choices. They do not execute a model or silently alter values. Pending assessments are recorded and keep output in completed-with-findings status. The current interface retains duplicate candidates pending a detailed survivor decision; it does not silently use first-row deduplication. Root causes are not inferred from missingness percentages. M1 (<5% non-critical), M2 (<5% critical/unconfirmed), M3 (5–20% inclusive) and M4 (>20%) guide recommendations, not automatic destructive actions.
 
-1. Choose **patient.csv (500 rows)** (the default), **medication.csv (500 rows)**, or **procedure.csv (500 rows)**, and leave **Offline rules** selected. The matching contract loads automatically; process one table per run.
-2. Click **Profile and propose plan**. This runs the real LangGraph and pauses at `interrupt()` without modifying data.
-3. Inspect the proposed tools, columns and affected-cell estimates. Select approved actions. Exact-duplicate removal is deliberately **not selected by default** because identical rows can represent legitimate repeated events.
-4. Click **Apply selected actions**. Each subsequent review round requires a separate approval. The graph stops after at most two cleaning rounds.
-5. Inspect original/current data, unresolved findings and the audit log.
-6. Download **Cleaned CSV**, **Review workbook**, or **Full audit bundle** before clearing the session or restarting.
+The OpenAI planner remains optional and uses the configured aggregate-only consent flow. Study-specific modeling, MICE pooling, proxy validity, structural missingness, subgroup sensitivity and clinical interpretation require further assessment. All project/checkpoint state is in memory; export before restart. CSV input is limited to 5 MB, 100 columns and 10,000 rows by the existing loader. This revision changes the main review screen; the alternative study-wizard prototype remains a separate draft PR.
 
-Offline mode is a deterministic planner and makes no model call. It demonstrates the actual graph, tools, approval and validation behavior; it does not simulate LLM performance.
-
-## Enable LLM planning
-
-Set your own API credentials before starting the server:
-
-```bash
-export OPENAI_API_KEY="YOUR_API_KEY"
-export OPENAI_MODEL="gpt-4.1-mini"
-python -m streamlit run app.py
-```
-
-PowerShell:
-
-```powershell
-$env:OPENAI_API_KEY="YOUR_API_KEY"
-$env:OPENAI_MODEL="gpt-4.1-mini"
-python -m streamlit run app.py
-```
-
-Choose **OpenAI planner** and confirm sending the profile/contract. `.env.example` documents variables but is **not loaded automatically**. Use a model available to your account that supports strict structured outputs. Credentials stay in server environment variables.
-
-The LLM receives column names, aggregate missing/duplicate counts, the explicit data contract, and candidate tool IDs/reasons/counts. **Patient rows and sample cell values are not included.** Column names and user-written dictionaries may still contain sensitive metadata; use synthetic or appropriately de-identified data. The API call uses `store: false`; provider data handling and billing policies still apply.
-
-The LLM selects candidate action IDs through JSON Schema/Pydantic structured output. Code rejects invented/duplicate action IDs. The model cannot write arbitrary Python, change cleaning parameters or directly edit patient values. The UI lets the reviewer accept a subset of the proposed actions.
-
-## LangGraph architecture
-
-```mermaid
-flowchart TD
-    A["Profile data"] --> B["Select cleaning tools"]
-    B --> C{"Any proposed actions?"}
-    C -->|Yes| D["Human approval: interrupt"]
-    C -->|No| H["Finish with findings"]
-    D -->|Approved subset| E["Apply allowed tools"]
-    D -->|Cancel| H
-    E --> F["Validate and reprofile"]
-    F --> G{"Remaining actions and round below 2?"}
-    G -->|Yes| B
-    G -->|No| H
-```
-
-- **StateGraph / TypedDict state:** original/current rows, contract, profile, plan, decisions, findings, trace, API usage and audit.
-- **InMemorySaver:** checkpoints the actual graph state by a unique `thread_id`. It supports pause/resume within this process/session; it is **not durable storage**.
-- **interrupt / Command(resume=...):** real human approval. No transformations occur before review. The review node is side-effect-free before `interrupt`, so node replay cannot duplicate cleaning.
-- **Conditional edges:** skip execution when there is no plan, handle cancellation, and replan newly exposed issues for at most two rounds.
-- **Bounded tool selection:** optional LLM chooses among known tools; deterministic Python executes only approved actions.
-- **Validation feedback:** outliers, missing values and ambiguous dates remain findings. A finished graph does not certify data fitness for a study.
-
-The app uses direct OpenAI Responses API calls for structured planning and LangGraph for orchestration; no LangChain model adapter, vector database, fine-tuning or multi-agent framework is required.
-
-## Included cleaning tools
-
-| Tool | Approved behavior | Boundary |
-|---|---|---|
-| `trim` | Remove leading/trailing whitespace | Does not rename headers or alter internal text |
-| `normalize_missing` | Convert configured tokens such as NA/N/A/NULL to null | No imputation or row deletion; edit the contract when a token is a valid domain value |
-| `normalize_category` | Apply an explicit category mapping | Unknown categories remain unchanged and flagged |
-| `normalize_date` | Normalize valid year-first dates to ISO | Ambiguous day/month strings and invalid dates are retained and flagged |
-| `normalize_number` | Canonicalize numeric text without rounding | IDs retain leading zeros; invalid numbers remain unchanged; no currency/unit conversion |
-| `drop_exact_duplicates` | Keep first row identical across all source columns | Never deduplicate solely by patient ID; requires explicit approval |
-
-Default domain checks flag age outside 0–120, negative total costs, missing required fields, invalid numbers/dates, unmapped categories and discharge before admission. These are **editable demonstration checks**, not validated clinical rules. Implausible values are never automatically corrected, removed, winsorized or imputed. Negative costs can be legitimate adjustments in some datasets: adapt the contract to the study and data source.
-
-## Demo inputs and editable agent instructions
-
-The three user-reviewed synthetic CSVs are stored unchanged in `data/demo/`. Each contains **500 data rows**, excluding its header. `data/demo/manifest.json` records hashes and fixture expectations.
-
-| Input | Deliberate missingness | Additional examples |
-|---|---|---|
-| `patient.csv` | `race`: 150 blanks (30%) | 5 separate Unknown race values; 2 extra exact duplicates; age 240 and -5 |
-| `medication.csv` | `paid_amount`: 125 blanks (25%) | Other numeric/category blanks; 5 separate Unknown route values; 3 blank patient IDs |
-| `procedure.csv` | `description`: 125 blanks (25%) | Missing codes/dates and 3 blank patient IDs; description lookup is future work |
-
-The sidebar loads `contracts/patient.json`, `contracts/medication.json`, or `contracts/procedure.json` with the corresponding dataset. Edit the contract in the UI for that run, or edit the matching JSON file to change the default. The source names and synthetic codes are preserved for future reviewed OMOP/CDISC mappings. Switching dataset does not change an already-started run; click **Profile and propose plan** to start a new run.
-
-Read and edit **[SKILL.md](SKILL.md)** for repository-scoped agent instructions. It describes the workflow, >20% review rule, Unknown handling, duplicates, outliers, proposed filling methods, and future standard mapping. The OpenAI planner reads the file on each planning call and records its SHA-256 in API-call metadata. Restarting a pending review does not retroactively update an existing plan. The UI also displays the instructions in an expander. This is a project instructions file, not an installed personal ChatGPT skill.
-
-**Executable rules live in Python and the JSON contracts.** Offline mode does not interpret Markdown instructions. Editing SKILL.md can guide the LLM's choices and rationale, but cannot add tools, bypass approval, or implement imputation. Mean/median filling, blank-to-Unknown filling, dropping incomplete rows/columns, lookup filling, MICE/ML imputation, cross-table reconciliation, and OMOP/CDISC mapping are not implemented. The current agent normalizes missing tokens to null and leaves values unresolved for review. Literal Unknown remains unchanged unless an explicit category map replaces it.
-
-The missingness panel reports configured null-token counts/rates and literal Unknown counts separately. A rate strictly above 20% triggers review; it does not automatically delete or fill a field. Living patients' blank death dates are structurally not applicable. SSN and medication notes are intentionally absent and must not be fabricated.
-
-The original **Synthetic RWE sample** remains available as a 10-row formatting fixture. It uses `DEFAULT_CONTRACT` with `patient_id`, `age`, `sex`, `admission_date`, `discharge_date`, and `total_cost`. Approving all its tools yields 8 rows; leaving duplicate removal unapproved preserves all 10. For uploaded CSVs, edit the contract to match their schema.
-
-To see a second review pass, use two otherwise identical rows whose only difference is leading whitespace, with no initial exact duplicates. First approve trimming; the next profile exposes a duplicate and asks for a new approval. Declined actions remain blocked for that run and are listed as remaining opportunities.
-
-## Provenance and exports
-
-- `__source_row__` is the original 1-based CSV **record number including the header**. With embedded newlines, it is not necessarily a physical file line number.
-- Original data stay unchanged in state. Each modified cell records source row, action, column, before/after values and round. Removed duplicates record their full prior row, allowing reconstruction of the original records.
-- `Review workbook` contains Original, Cleaned, Issues, Audit, Trace and Metadata sheets. Identifier/value strings are explicitly stored as text, including strings beginning with `=`, for spreadsheet review.
-- `Full audit bundle` contains the exact original input CSV, cleaned CSV, and JSON with the contract, original/current rows, changes, findings, declined/remaining opportunities, execution trace, reviewer notes and API usage.
-- CSV uses empty cells for nulls; JSON retains the distinction between empty source strings and normalized nulls. CSV strings are preserved verbatim; use the workbook for reviewing untrusted text in a spreadsheet application.
-- API latency and elapsed wall time are recorded. Wall time includes waiting and review; it is **not active human labor** and must not be treated as measured time savings or ROI.
-
-## Tests and validation status
-
-```bash
-python -m unittest -v
-```
-
-The test suite covers the three 500-row demo inputs, matching contracts, missingness thresholds, Unknown preservation, skill loading, and the existing real LangGraph interrupts, approval/resume, cancellation, a second approval round, subset execution, blocked duplicate removal, reversible audit logs, exact numeric precision, identifier protection, clinical findings, malformed CSV, allowlist rejection, mocked structured API planning, text-safe workbook export, and Streamlit app interactions using `AppTest`.
-
-The graph and offline path were executed with **LangGraph 1.2.19** and **Streamlit 1.66.1**. Live OpenAI connectivity and model plan quality require your configured API key and have not been tested against a real provider in this build. AppTest checks app behavior, not rendered browser appearance. This prototype does not establish production accuracy, efficiency gains, regulatory compliance or ROI.
-
-## Limits
-
-- UTF-8 CSV only; 5 MB, 10,000 data rows, 100 columns, 10,000 characters per cell.
-- Two cleaning rounds maximum. Remaining opportunities are exported instead of looping indefinitely.
-- In-memory single-user development app; no production authentication, durable checkpoints, database integration or distributed execution.
-- Changing sidebar inputs does not alter the current run: start a new run to apply a changed contract or planner.
-- Cancellation stops future work. It does not undo earlier approved rounds; download the preserved original if needed.
-- Download records before clearing or restarting. No patient data, keys or export files are written to the repository by the app.
-
-## Files
-
-- `app.py` — Streamlit review interface.
-- `agent.py` — actual LangGraph, human interrupt, structured planner and conditional loop.
-- `cleaning.py` — CSV ingestion, contract checks, deterministic tools and quality checks.
-- `exporting.py` — text-safe Excel review workbook.
-- `data/demo/*.csv`, `data/demo/manifest.json` — the three 500-row inputs and fixture metadata.
-- `contracts/*.json`, `demo_data.py` — executable per-table contracts and demo loader.
-- `SKILL.md` — editable planning instructions loaded by the LLM planner.
-- `sample_rwe.csv` — original 10-row development fixture.
-- `test_cleaning.py`, `test_app.py`, `test_demo_data.py` — graph, tool, export and interface tests.
-- `requirements.txt`, `.env.example`, `.streamlit/config.toml` — setup.
-
-## Official technical references
-
-- [LangGraph interrupts and resume](https://docs.langchain.com/oss/python/langgraph/interrupts)
-- [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
-- [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+Run `python -m unittest discover -v` for core, demo, review-table, workbook and interface checks.
