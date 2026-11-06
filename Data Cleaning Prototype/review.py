@@ -117,20 +117,19 @@ def review_workbook(summary,review,choices=None):
     for r in summary: ws.append([r['column'],r['affected_cells_estimate'],None if r['percentage of missing'] is None else r['percentage of missing']/100])
     for cell in ws['C'][1:]: cell.number_format='0.00%'
     review_sheet=wb.create_sheet('Review');options_sheet=wb.create_sheet('Options')
-    headers=['column that contains any data issue','issue','reasons for the data issues','affected_cells_estimate','percentage of missing','rule','importance','exact suggested plan','selected action','execution status']
+    headers=['Column name','Data issue','Reasons','Suggested plan','Action']
     review_sheet.append(headers)
     for i,r in enumerate(review,2):
         choice=(choices or {}).get(r['id'],r['selected_action'])
         status='Assessment only; does not execute' if choice in ASSESS or 'assessment required' in choice else 'Select and confirm in app to execute'
-        review_sheet.append([r['column'],r['issue'],r['reason'],r['affected_cells_estimate'],None if r['missing_percent'] is None else r['missing_percent']/100,r['rule'],r['importance'],r['suggested_plan'],choice,status])
-        review_sheet.cell(i,5).number_format='0.00%'
+        review_sheet.append([r['column'],r['issue'],r['reason'],r['suggested_plan'],choice])
         for j,v in enumerate(r['options'],1): options_sheet.cell(j,i-1,v)
         letter=get_column_letter(i-1)
         range_name=f"Treatments_{i}"
         wb.defined_names.add(DefinedName(range_name, attr_text=f"'Options'!${letter}$1:${letter}${len(r['options'])}"))
         dv=DataValidation(type='list',formula1=range_name)
         dv.errorTitle='Choose a listed treatment';dv.error='Select a treatment from this row’s dropdown.';dv.showErrorMessage=True
-        review_sheet.add_data_validation(dv);dv.add(review_sheet.cell(i,9))
+        review_sheet.add_data_validation(dv);dv.add(review_sheet.cell(i,5))
     options_sheet.sheet_state='hidden'
     notes=wb.create_sheet('Instructions');notes.append(['Review instructions'])
     notes.append(['Workbook is for review. Confirm selections in the app; edited workbook upload is not implemented.'])

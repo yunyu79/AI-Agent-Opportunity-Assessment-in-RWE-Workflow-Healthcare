@@ -18,7 +18,11 @@ class AppTests(unittest.TestCase):
   next(b for b in app.button if b.label=='Profile and propose plan').click().run()
   self.assertEqual(len(app.exception),0)
   self.assertTrue(any('affected_cells_estimate' in df.value.columns for df in app.dataframe))
-  self.assertTrue(any('Selected action' in df.value.columns for df in app.dataframe))
+  self.assertTrue(any(b.label=='Generate / refresh LLM review' for b in app.button))
+  self.assertTrue(next(b for b in app.button if b.label=='Apply selected actions').disabled)
+  with patch('llm_review.explain_review',side_effect=lambda review,*args: {r['id']:{'reasons':'Evidence insufficient; assess mechanism.','suggested_plan':'MICE'} for r in review}):
+   next(c for c in app.checkbox if c.label=='Allow this review context to be sent to OpenAI.').check().run()
+   next(b for b in app.button if b.label=='Generate / refresh LLM review').click().run()
   run=app.session_state['run'];self.assertEqual(run['graph'].get_state(run['config']).values['audit'],[])
   next(b for b in app.button if b.label=='Apply selected actions').click().run()
   self.assertEqual(len(app.exception),0)
