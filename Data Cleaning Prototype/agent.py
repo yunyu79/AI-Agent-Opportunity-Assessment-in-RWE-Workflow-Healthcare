@@ -187,7 +187,7 @@ def build_agent(planner=None):
     return graph.compile(checkpointer=InMemorySaver())
 
 
-def initial_state(rows, columns, contract, mode='Offline rules', model='gpt-6.1-sol'):
+def initial_state(rows, columns, contract, mode='Offline rules', model='gpt-6-astra'):
     if mode not in ['Offline rules','OpenAI planner']:
         raise ValueError('Unknown planner mode.')
     contract = validate_contract(contract,columns)

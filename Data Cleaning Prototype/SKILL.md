@@ -14,7 +14,7 @@ Ask for objectives for each new project. Capture outcomes, predictors, confounde
 Read supplied files, preserving identifiers and precision. Confirm missing markers, units and date conventions. Show column, distinct affected-cell estimate and missing percentage before review; disclose sampling or parsing limitations. Keep files separate unless joining is explicitly defined.
 
 ## 3. Review interface and LLM planning
-Use GPT-6.1 Sol (`gpt-6.1-sol`) by default for LLM planning. Keep critical/non-critical variable selection under “2 · Review the proposed plan”. Show exactly five main columns:
+Use GPT-6 Astra (`gpt-6-astra`) by default for LLM planning. Keep critical/non-critical variable selection under “2 · Review the proposed plan”. Show exactly five main columns:
 
 | Column name | Data issue | Reasons | Suggested plan | Action |
 | --- | --- | --- | --- | --- |

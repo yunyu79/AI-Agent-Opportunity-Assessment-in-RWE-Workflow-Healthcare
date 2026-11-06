@@ -2,6 +2,7 @@
 import json
 import os
 import urllib.request
+import urllib.error
 from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
@@ -16,7 +17,7 @@ class Recommendations(BaseModel):
     items:list[Recommendation]
 
 
-def explain_review(review, objectives, importance, model='gpt-6.1-sol'):
+def explain_review(review, objectives, importance, model='gpt-6-astra'):
     key=os.environ.get('OPENAI_API_KEY')
     if not key: raise ValueError('Configure OPENAI_API_KEY to generate LLM reasons and recommendations.')
     safe=[{k:r[k] for k in ('id','column','issue','reason','affected_cells_estimate','missing_percent','rule','options')} for r in review]
@@ -25,7 +26,11 @@ def explain_review(review, objectives, importance, model='gpt-6.1-sol'):
     request=urllib.request.Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
     try:
         with urllib.request.urlopen(request,timeout=120) as response:body=json.load(response)
-    except Exception as exc:raise ValueError('LLM review failed; no data changes were applied. Check model access and connection.') from exc
+    except urllib.error.HTTPError as exc:
+        hint={401:'Check OPENAI_API_KEY.',403:'Your account cannot access this model.',404:'Check the model name and account availability.',429:'Check API quota or rate limits; retry later.'}.get(exc.code,'Check the API request and service status.')
+        raise ValueError(f'OpenAI assessment failed (HTTP {exc.code}). {hint} No data changed.') from exc
+    except (urllib.error.URLError,TimeoutError) as exc:
+        raise ValueError('OpenAI connection failed or timed out. Check connectivity and retry; no data changed.') from exc
     if body.get('status')!='completed':raise ValueError('Incomplete LLM review; no recommendations accepted.')
     text=''.join(p.get('text','') for item in body.get('output',[]) for p in item.get('content',[]) if p.get('type')=='output_text')
     items=Recommendations.model_validate_json(text).items

@@ -38,7 +38,7 @@ if st.session_state.get('_loaded_project')!=project_id:
 def persist():
     settings=dict(st.session_state.get('_saved_settings',{}))
     keys=['study_objectives','dataset','planner','model','consent']
-    keys += [k for k in st.session_state if k.startswith(('contract-','critical-','noncritical-','review_note-'))]
+    keys += [k for k in st.session_state if k.startswith(('contract-','critical-','noncritical-','review_note-','review-consent-'))]
     for key in keys:
         if key in st.session_state: settings[key]=st.session_state[key]
     upload=st.session_state.get('upload_csv')
@@ -60,13 +60,16 @@ def display_rows(rows):
 
 
 
+# Upgrade saved defaults as well as new projects.
+if st.session_state.get('model') in ('gpt-4.1-mini','gpt-6.1-sol'):
+    st.session_state['model']='gpt-6-astra'
 with st.sidebar:
     st.header('1 · Study and data')
     objectives = st.text_area('Study objectives (required for a new project)', key='study_objectives',on_change=persist)
     source = st.radio('Dataset',list(DATASETS) + [LEGACY_SAMPLE,'Upload CSV'],key='dataset',on_change=persist)
     uploaded = st.file_uploader('UTF-8 CSV',type=['csv'],disabled=source!='Upload CSV',key='upload_csv',on_change=persist)
     mode = st.selectbox('Planner',['Offline rules','OpenAI planner'],key='planner',on_change=persist)
-    model = st.text_input('Model',value=os.environ.get('OPENAI_MODEL','gpt-6.1-sol'),disabled=mode!='OpenAI planner',key='model',on_change=persist)
+    model = st.text_input('Model',value='gpt-6-astra',key='model',on_change=persist)
     consent = st.checkbox('Allow sending column names, aggregate counts and the contract to OpenAI.',disabled=mode!='OpenAI planner',key='consent',on_change=persist)
     st.caption('Patient rows and sample cell values are excluded from the planner request. No API key is entered or displayed here.')
     with st.expander('Edit data contract'):
@@ -177,26 +180,33 @@ if snapshot.next==('human_review',) and not run['error']:
     summary, review = review_tables(state,importance)
     import hashlib
     context_key=hashlib.sha256(json.dumps([review,run['objectives'],importance,model],sort_keys=True).encode()).hexdigest()
-    st.caption('Generate reasons and a suggested method with Sol. This sends study objectives, importance and aggregate issue descriptions; no record values. Recommendations never apply changes.')
+    st.caption('Astra assesses likely reasons and recommends a method using study objectives, importance and aggregate issue descriptions. No record values are sent. Data changes still require your approval.')
     review_consent=st.checkbox('Allow this review context to be sent to OpenAI.',key='review-consent-'+project_id)
-    if st.button('Generate / refresh LLM review',disabled=not review_consent):
+    cached=run.get('llm_review',{})
+    retry=st.button('Retry LLM assessment',disabled=not review_consent)
+    if review_consent and review and (retry or (cached.get('context')!=context_key and run.get('llm_attempt_context')!=context_key)):
+        run['llm_attempt_context']=context_key
+        run.pop('llm_review_error',None)
         try:
-            with st.spinner('Assessing reasons and treatment options…'):
+            with st.spinner('Astra is assessing reasons and treatment options…'):
                 run['llm_review']={'context':context_key,'items':explain_review(review,run['objectives'],importance,model)}
-            persist()
-        except Exception as exc: st.error(str(exc))
+        except Exception as exc:
+            run['llm_review_error']=str(exc)
+        persist()
     explanations=run.get('llm_review',{}).get('items',{}) if run.get('llm_review',{}).get('context')==context_key else {}
-    if not explanations: st.info('Generate the LLM review before approving changes. Updated study importance requires a fresh review.')
-    headings=st.columns([1.3,1.4,3,2,2])
-    for cell,label in zip(headings,['Column name','Data issue','Reasons','Suggested plan','Action']):cell.markdown('**'+label+'**')
-    choices={}
+    if not review_consent:
+        st.info('Enable the checkbox above to start the LLM assessment automatically.')
+    elif run.get('llm_review_error') and not explanations:
+        st.error(run['llm_review_error'])
+    # A single spreadsheet widget keeps the five columns together at narrow widths.
+    visible=[]
     for r in review:
-        cells=st.columns([1.3,1.4,3,2,2]);explanation=explanations.get(r['id'],{})
-        cells[0].write(r['column']);cells[1].write(r['issue'])
-        cells[2].write(explanation.get('reasons','LLM assessment pending'))
-        cells[3].write(explanation.get('suggested_plan','Pending'))
+        explanation=explanations.get(r['id'],{})
         saved=run.get('draft_choices',{}).get(str(state['round']),{}).get(r['id'],KEEP)
-        choices[r['id']]=cells[4].selectbox('Action for '+r['column']+' / '+r['issue'],r['options'],index=r['options'].index(saved) if saved in r['options'] else 0,key='action-'+project_id+'-'+str(state['round'])+'-'+r['id'],label_visibility='collapsed')
+        visible.append({'Column name':r['column'],'Data issue':r['issue'],'Reasons':explanation.get('reasons','Assessment unavailable — see message above'),'Suggested plan':explanation.get('suggested_plan','Not generated'),'Action':saved if saved in r['options'] else KEEP})
+    all_options=list(dict.fromkeys(o for r in review for o in r['options']))
+    edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',height=480,num_rows='fixed',disabled=['Column name','Data issue','Reasons','Suggested plan'],column_config={'Column name':st.column_config.TextColumn(width='medium'),'Data issue':st.column_config.TextColumn(width='medium'),'Reasons':st.column_config.TextColumn(width='large'),'Suggested plan':st.column_config.TextColumn(width='medium'),'Action':st.column_config.SelectboxColumn(options=all_options,required=True,width='large')},key='review-grid-'+project_id+'-'+str(state['round'])+'-'+context_key+'-'+str(bool(explanations))) if visible else pd.DataFrame()
+    choices={r['id']:edited.iloc[i]['Action'] for i,r in enumerate(review)}
     run.setdefault('draft_choices',{})[str(state['round'])]=choices
     persist()
     invalid=[r['column'] for r in review if choices[r['id']] not in r['options']]
@@ -204,7 +214,7 @@ if snapshot.next==('human_review',) and not run['error']:
     with st.expander('Available options for each issue'):
         for r in review: st.write(r['column']+' · '+r['issue']+': '+ '; '.join(r['options']))
     st.caption('MICE, ML and proxy are assessment choices: they preserve values and leave output provisional. This prototype does not execute these models. Numeric imputation is available only for validated numeric columns, never identifiers.')
-    export_review=[dict(r,reason=explanations.get(r['id'],{}).get('reasons','LLM assessment pending'),suggested_plan=explanations.get(r['id'],{}).get('suggested_plan','Pending')) for r in review]
+    export_review=[dict(r,reason=explanations.get(r['id'],{}).get('reasons','Assessment unavailable — see app message'),suggested_plan=explanations.get(r['id'],{}).get('suggested_plan','Not generated')) for r in review]
     st.download_button('Download review Excel form',review_workbook(summary,export_review,choices),'proposed_cleaning_plan.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     st.caption('Excel includes Summary and Review sheets with dropdowns. Confirm choices in this app; importing an edited workbook is not supported.')
     loss=sum(any(r['column'] in row and (row[r['column']] is None or str(row[r['column']]).strip().casefold() in {v.strip().casefold() for v in state['contract']['missing_tokens']}) for r in review if choices[r['id']]=='Complete-case: delete rows missing this column') for row in state['rows'])
