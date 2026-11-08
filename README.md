@@ -2,7 +2,9 @@
 
 ## 1. Purpose
 
-This project identifies where AI agents could reduce manual work in real-world evidence (RWE) and health economics and outcomes research (HEOR). It maps the workflow, compares candidate opportunities, and develops a data cleaning prototype to test whether an agent can help analysts identify issues and apply approved corrections. A first-round validation and ROI estimate provide a basis for deciding whether to run a broader pilot.
+This project identifies where AI agents could reduce manual work and boost efficiency in the workflow of real-world evidence (RWE) in the healthcare industry. 
+
+It maps the workflow, compares candidate scenario opportunities, and develops a data-cleaning prototype to test whether an agent can help analysts identify issues and apply approved corrections. A first-round validation and ROI estimate provide a basis for deciding whether to run a broader pilot.
 
 ## 2. Project workflow
 
