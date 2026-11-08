@@ -15,6 +15,7 @@ from review import review_tables, review_workbook, KEEP, recommendation_action
 from llm_review import explain_review
 from diagnostics import detect_issues
 from reporting import management_report
+from summary import quality_summary
 from project_store import save_project, load_project, close_project
 
 from agent import build_agent, initial_state, resume_agent, load_skill
@@ -173,6 +174,18 @@ st.caption('Affected cells count distinct source cells with detected issues; ove
 summary, _ = review_tables(state)
 st.dataframe(pd.DataFrame(summary), hide_index=True, width='stretch', column_config={'percentage of missing':st.column_config.NumberColumn(format='%.2f%%')})
 
+st.subheader('Outlier and duplicate statistics')
+st.caption('Full-file statistics for the current working data. Before approval this is the original input. Repeated individual values (such as ZIP codes) are descriptive counts, not automatically errors.')
+overall, column_statistics=quality_summary(state['rows'],state['columns'],state['contract'])
+metrics=st.columns(4)
+metrics[0].metric('Rows with statistical outliers',overall['rows_with_statistical_outliers'])
+metrics[1].metric('Exact duplicate groups',overall['exact_duplicate_groups'])
+metrics[2].metric('Rows in duplicate groups',overall['rows_in_exact_duplicate_groups'])
+metrics[3].metric('Excess duplicate rows',overall['excess_exact_duplicate_rows'])
+st.dataframe(pd.DataFrame(column_statistics),hide_index=True,width='stretch')
+st.caption('Duplicate groups count matching full source rows; excess rows are group size minus one, not a recommendation to delete. Outliers use 1.5×IQR on configured numeric non-ID fields; fewer than four finite values or zero IQR are not assessed. Percentages use all rows; range violations are counted separately. Missing values are excluded from repeated-value counts.')
+st.download_button('Download quality statistics CSV',pd.DataFrame(column_statistics).to_csv(index=False).encode('utf-8-sig'),'quality_statistics.csv','text/csv')
+
 if snapshot.next==('human_review',):
     st.subheader('2 · Review the proposed plan')
     st.caption('Review each column below. Click a Selected action cell to choose a treatment; then confirm. The suggested plan does not execute automatically.')
@@ -274,6 +287,8 @@ with right:
     st.subheader('Cleaned data — after approval')
     if any(t.get('node')=='apply_tools' for t in state.get('trace',[])):
         st.dataframe(display_rows(state['rows']),hide_index=True,width='stretch')
+        st.download_button('Download cleaned dataset (CSV)',csv_bytes(state['rows'],state['columns']),'cleaned_'+run['filename'],'text/csv',key='approved-cleaned-download',width='stretch')
+        if snapshot.next:st.caption('Contains successfully approved changes so far; further review is still pending.')
     else:
         st.info('No cleaned results yet. Select actions in the review table and click Approve and apply selected actions. Your original data is unchanged.')
 
@@ -301,7 +316,7 @@ if not snapshot.next and not run['error'] and any(t.get('node')=='apply_tools' f
     report={'metadata':metadata,'contract':state['contract'],'original':state['original'],'cleaned':state['rows'],
             'audit':state.get('audit',[]),'issues':state.get('issues',[]),'trace':state.get('trace',[]),
             'remaining_actions':state.get('remaining_actions',[]),'pending_methods':state.get('pending_methods',[]),'study_objectives':run['objectives'],
-            'diagnostic_findings':detect_issues(state['rows'],state['columns'],state['contract']),'api_calls':state.get('calls',[]),'reviews':run.get('reviews',[])}
+            'quality_statistics':{'overall':overall,'columns':column_statistics},'diagnostic_findings':detect_issues(state['rows'],state['columns'],state['contract']),'api_calls':state.get('calls',[]),'reviews':run.get('reviews',[])}
     bundle=io.BytesIO()
     with zipfile.ZipFile(bundle,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('original_input.csv',run['source_bytes'])
