@@ -17,7 +17,7 @@ class Recommendations(BaseModel):
     items:list[Recommendation]
 
 
-def explain_review(review, objectives, importance, model='gpt-6-astra'):
+def explain_review(review, objectives, importance, model='gpt-6.1-sol'):
     key=os.environ.get('OPENAI_API_KEY')
     if not key: raise ValueError('Configure OPENAI_API_KEY to generate LLM reasons and recommendations.')
     safe=[{k:r[k] for k in ('id','column','issue','reason','affected_cells_estimate','missing_percent','rule','options')} for r in review]

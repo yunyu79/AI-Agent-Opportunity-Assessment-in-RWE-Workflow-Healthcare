@@ -164,7 +164,7 @@ def build_agent(planner=None):
         return {'issues':issues,'remaining_actions':remaining,'status':status,'trace':[{'node':'finish','status':status}]}
 
     def after_plan(state):
-        return 'human_review' if state['plan'] else 'finish'
+        return 'human_review' if state['plan'] or review_tables(state)[1] else 'finish'
 
     def after_review(state):
         return 'finish' if state['status'] == 'cancelled' else 'apply_tools'
@@ -187,7 +187,7 @@ def build_agent(planner=None):
     return graph.compile(checkpointer=InMemorySaver())
 
 
-def initial_state(rows, columns, contract, mode='Offline rules', model='gpt-6-astra'):
+def initial_state(rows, columns, contract, mode='Offline rules', model='gpt-6.1-sol'):
     if mode not in ['Offline rules','OpenAI planner']:
         raise ValueError('Unknown planner mode.')
     contract = validate_contract(contract,columns)

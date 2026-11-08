@@ -4,6 +4,7 @@ import io
 from decimal import Decimal
 from collections import Counter
 from cleaning import ROW, as_number, proposed_value, quality_issues
+from diagnostics import detect_issues
 
 KEEP = 'Keep unchanged'
 ASSESS = ['MICE — assessment required', 'ML prediction — assessment required', 'Proxy — validation required']
@@ -18,10 +19,13 @@ def review_tables(state, importance=None):
     importance = importance or {}
     rows, cols, contract = state['rows'], state['columns'], state['contract']
     summary, review = [], []
-    issues = quality_issues(rows,cols,contract)
+    diagnostics = detect_issues(rows,cols,contract)
+    issues = []
     for col in cols:
         missing_rows = {r[ROW] for r in rows if is_missing(r[col],contract)}
         affected = set(missing_rows)
+        for finding in diagnostics:
+            if finding['column'] in (col,'All source columns'):affected.update(finding['source_rows'])
         reasons = set()
         for issue in issues:
             if issue['column']==col and issue['source_row'] is not None:
@@ -53,12 +57,9 @@ def review_tables(state, importance=None):
         for action in state.get('plan',[]):
             if action['column']==col and action['tool']!='normalize_missing':
                 review.append(dict(id=action['id'],column=col,issue='Format inconsistency',reason=action['reason'],affected_cells_estimate=action['affected_cells_estimate'],missing_percent=pct,rule='Explicit contract',importance=importance.get(col,'Unconfirmed'),suggested_plan=action['reason'],selected_action=KEEP,options=[KEEP,'Apply suggested normalization']))
-        other=[r for r in reasons if not r.startswith('Required value missing')]
-        if other:
-            review.append(dict(id='finding:'+col,column=col,issue='Validation finding',reason='; '.join(sorted(other)),affected_cells_estimate=len({i['source_row'] for i in issues if i['column']==col}),missing_percent=pct,rule='Domain review',importance=importance.get(col,'Unconfirmed'),suggested_plan='Review source records and study-specific causes before correction.',selected_action=KEEP,options=[KEEP,'Investigate source — assessment required']))
-    duplicates=[a for a in state.get('plan',[]) if a['tool']=='drop_exact_duplicates']
-    if duplicates:
-        review.append(dict(id='duplicate-review',column='All source columns',issue='Exact duplicate candidates',reason='Identical source values may also represent valid repeated events.',affected_cells_estimate=duplicates[0]['affected_cells_estimate'],missing_percent=None,rule='Duplicate review',importance='Unconfirmed',suggested_plan='Review all candidate rows and explicitly choose survivors; retain pending review.',selected_action=KEEP,options=[KEEP,'Review duplicate candidates — assessment required']))
+    for finding in diagnostics:
+        col=finding['column']
+        review.append(dict(id='diagnostic:'+col+':'+finding['issue'],column=col,issue=finding['issue'],reason=finding['reason'],source_rows=finding['source_rows'],affected_cells_estimate=len(finding['source_rows']),missing_percent=next((x['percentage of missing'] for x in summary if x['column']==col),None),rule='Diagnostic review',importance=importance.get(col,'Unconfirmed'),suggested_plan='Assess evidence and source records before correction; retain until an appropriate action is approved.',selected_action=KEEP,options=[KEEP,'Investigate source — assessment required']))
     return summary, review
 
 

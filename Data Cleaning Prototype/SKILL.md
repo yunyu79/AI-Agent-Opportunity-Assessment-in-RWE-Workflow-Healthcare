@@ -14,7 +14,7 @@ Ask for objectives for each new project. Capture outcomes, predictors, confounde
 Read supplied files, preserving identifiers and precision. Confirm missing markers, units and date conventions. Show column, distinct affected-cell estimate and missing percentage before review; disclose sampling or parsing limitations. Keep files separate unless joining is explicitly defined.
 
 ## 3. Review interface and LLM planning
-Use GPT-6 Astra (`gpt-6-astra`) by default for LLM planning. Keep critical/non-critical variable selection under “2 · Review the proposed plan”. Show exactly five main columns:
+Use GPT-6.1 Sol (`gpt-6.1-sol`) by default for LLM planning. Keep critical/non-critical variable selection under “2 · Review the proposed plan”. Show exactly five main columns:
 
 | Column name | Data issue | Reasons | Suggested plan | Action |
 | --- | --- | --- | --- | --- |
@@ -36,7 +36,10 @@ For every tier, examine reasons, note MCAR/MAR/MNAR as supported or uncertain, a
 
 Empty-table percentages are undefined; all-missing columns cannot impute themselves. Separate structural non-applicability, detection limits and dropout. Check combined row loss, small samples and clustered missingness. MICE needs multiple datasets and pooling; ML needs validation and leakage prevention; proxies need conceptual validation. Simple imputation understates uncertainty.
 
-## 5. Duplicates and outliers
+## 5. Additional data issues
+Detect and show a separate review row for each variable and issue type: statistical outliers, exact duplicate rows, repeated identifiers, invalid numbers/dates, unexpected categories, range violations, missing required columns and date-order contradictions. Use configured schema/domain checks rather than claiming exhaustive detection. For start_date/end_date require end_date > start_date; document whether other pairs permit equality. Exclude missing markers from parsing errors and identifiers from numeric outlier detection. Show affected source records and evidence for Sol to assess; repeated IDs and statistical extremes are candidates, not proven errors.
+
+### Duplicates and outliers
 Show duplicate candidates with all source columns and allow explicit survivors/deletions or retention. Distinguish repeated events from duplicates. Show outlier values, thresholds and possible causes; offer retention, explicit row deletion/cell missingness or approved percentile capping. P95 is for upper tails; lower-tail capping requires P5/P95. Freeze reviewed thresholds and audit changes.
 
 ## 6. Validate and deliver

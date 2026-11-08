@@ -13,6 +13,7 @@ import streamlit as st
 from exporting import excel_bundle
 from review import review_tables, review_workbook, KEEP
 from llm_review import explain_review
+from diagnostics import detect_issues
 from project_store import save_project, load_project, close_project
 
 from agent import build_agent, initial_state, resume_agent, load_skill
@@ -61,15 +62,15 @@ def display_rows(rows):
 
 
 # Upgrade saved defaults as well as new projects.
-if st.session_state.get('model') in ('gpt-4.1-mini','gpt-6.1-sol'):
-    st.session_state['model']='gpt-6-astra'
+if st.session_state.get('model') in ('gpt-4.1-mini','gpt-6-astra'):
+    st.session_state['model']='gpt-6.1-sol'
 with st.sidebar:
     st.header('1 · Study and data')
     objectives = st.text_area('Study objectives (required for a new project)', key='study_objectives',on_change=persist)
     source = st.radio('Dataset',list(DATASETS) + [LEGACY_SAMPLE,'Upload CSV'],key='dataset',on_change=persist)
     uploaded = st.file_uploader('UTF-8 CSV',type=['csv'],disabled=source!='Upload CSV',key='upload_csv',on_change=persist)
     mode = st.selectbox('Planner',['Offline rules','OpenAI planner'],key='planner',on_change=persist)
-    model = st.text_input('Model',value='gpt-6-astra',key='model',on_change=persist)
+    model = st.text_input('Model',value='gpt-6.1-sol',key='model',on_change=persist)
     consent = st.checkbox('Allow sending column names, aggregate counts and the contract to OpenAI.',disabled=mode!='OpenAI planner',key='consent',on_change=persist)
     st.caption('Patient rows and sample cell values are excluded from the planner request. No API key is entered or displayed here.')
     with st.expander('Edit data contract'):
@@ -180,7 +181,7 @@ if snapshot.next==('human_review',) and not run['error']:
     summary, review = review_tables(state,importance)
     import hashlib
     context_key=hashlib.sha256(json.dumps([review,run['objectives'],importance,model],sort_keys=True).encode()).hexdigest()
-    st.caption('Astra assesses likely reasons and recommends a method using study objectives, importance and aggregate issue descriptions. No record values are sent. Data changes still require your approval.')
+    st.caption('Sol assesses likely reasons and recommends a method using study objectives, importance and aggregate issue descriptions. No record values are sent. Data changes still require your approval.')
     review_consent=st.checkbox('Allow this review context to be sent to OpenAI.',key='review-consent-'+project_id)
     cached=run.get('llm_review',{})
     retry=st.button('Retry LLM assessment',disabled=not review_consent)
@@ -188,7 +189,7 @@ if snapshot.next==('human_review',) and not run['error']:
         run['llm_attempt_context']=context_key
         run.pop('llm_review_error',None)
         try:
-            with st.spinner('Astra is assessing reasons and treatment options…'):
+            with st.spinner('Sol is assessing reasons and treatment options…'):
                 run['llm_review']={'context':context_key,'items':explain_review(review,run['objectives'],importance,model)}
         except Exception as exc:
             run['llm_review_error']=str(exc)
@@ -204,6 +205,12 @@ if snapshot.next==('human_review',) and not run['error']:
         explanation=explanations.get(r['id'],{})
         saved=run.get('draft_choices',{}).get(str(state['round']),{}).get(r['id'],KEEP)
         visible.append({'Column name':r['column'],'Data issue':r['issue'],'Reasons':explanation.get('reasons','Assessment unavailable — see message above'),'Suggested plan':explanation.get('suggested_plan','Not generated'),'Action':saved if saved in r['options'] else KEEP})
+    with st.expander('Issue details and affected source records'):
+        st.caption('Checks cover configured numeric, category, identifier and date rules; they cannot discover every domain-specific inconsistency. Repeated identifiers and statistical outliers are candidates, not proven errors.')
+        for finding in review:
+            if finding.get('source_rows'):
+                st.write(finding['column']+' · '+finding['issue']+' · '+str(len(finding['source_rows']))+' records')
+                st.dataframe(pd.DataFrame([r for r in state['rows'] if r[ROW] in set(finding['source_rows'])]),hide_index=True)
     all_options=list(dict.fromkeys(o for r in review for o in r['options']))
     edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',height=480,num_rows='fixed',disabled=['Column name','Data issue','Reasons','Suggested plan'],column_config={'Column name':st.column_config.TextColumn(width='medium'),'Data issue':st.column_config.TextColumn(width='medium'),'Reasons':st.column_config.TextColumn(width='large'),'Suggested plan':st.column_config.TextColumn(width='medium'),'Action':st.column_config.SelectboxColumn(options=all_options,required=True,width='large')},key='review-grid-'+project_id+'-'+str(state['round'])+'-'+context_key+'-'+str(bool(explanations))) if visible else pd.DataFrame()
     choices={r['id']:edited.iloc[i]['Action'] for i,r in enumerate(review)}
@@ -278,7 +285,7 @@ if not snapshot.next and not run['error']:
     report={'metadata':metadata,'contract':state['contract'],'original':state['original'],'cleaned':state['rows'],
             'audit':state.get('audit',[]),'issues':state.get('issues',[]),'trace':state.get('trace',[]),
             'remaining_actions':state.get('remaining_actions',[]),'pending_methods':state.get('pending_methods',[]),'study_objectives':run['objectives'],
-            'api_calls':state.get('calls',[]),'reviews':run.get('reviews',[])}
+            'diagnostic_findings':detect_issues(state['rows'],state['columns'],state['contract']),'api_calls':state.get('calls',[]),'reviews':run.get('reviews',[])}
     bundle=io.BytesIO()
     with zipfile.ZipFile(bundle,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('original_input.csv',run['source_bytes'])
