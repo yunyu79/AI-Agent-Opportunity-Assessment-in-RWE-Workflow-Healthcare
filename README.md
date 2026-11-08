@@ -75,7 +75,8 @@ W04 was selected for the first prototype because it ranks highest under the defa
 
 The prototype profiles CSV inputs for missing values, outliers, duplicate candidates, and rule violations. It proposes treatments in a review table, lets analysts choose an action for each issue, and applies supported changes after approval. Analysts can compare the original and cleaned data, export the cleaned CSV, and download a management report.
 
-<img width="960" height="567" alt="entire1" src="https://github.com/user-attachments/assets/39eaa40a-9974-4a4a-a6d0-641172103464" />
+<img width="960" height="541" alt="gif" src="https://github.com/user-attachments/assets/cae27f12-2c58-4a53-83b9-c15676ed0668" />
+
 
 **Technology stack**
 
