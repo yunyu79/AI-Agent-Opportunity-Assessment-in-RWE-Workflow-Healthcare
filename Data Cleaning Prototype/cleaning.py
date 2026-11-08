@@ -51,8 +51,13 @@ def load_csv(data):
 
 def validate_contract(contract, columns):
     expected = set(DEFAULT_CONTRACT)
-    if not isinstance(contract, dict) or set(contract) != expected:
+    if not isinstance(contract, dict) or not expected <= set(contract) or set(contract) - expected - {'allowed_duplicate_columns','duplicate_unique_columns'}:
         raise ValueError('Contract keys must match the supplied example contract.')
+    for key in ('allowed_duplicate_columns','duplicate_unique_columns'):
+        if key in contract and (not isinstance(contract[key],list) or any(not isinstance(v,str) or v not in columns for v in contract[key])):
+            raise ValueError(f'{key} must list existing column names.')
+    if set(contract.get('allowed_duplicate_columns',[])) & set(contract.get('duplicate_unique_columns',[])):
+        raise ValueError('A column cannot both allow repeats and require uniqueness.')
     for key in ['required_columns', 'identifier_columns', 'numeric_columns', 'date_columns', 'missing_tokens']:
         if not isinstance(contract[key], list) or any(not isinstance(v, str) for v in contract[key]):
             raise ValueError(f'{key} must be a list of strings.')

@@ -25,3 +25,22 @@ class DiagnosticTests(unittest.TestCase):
   graph.invoke(initial_state(rows,columns,self.contract()),config)
   snapshot=graph.get_state(config)
   self.assertEqual(snapshot.next,('human_review',));self.assertEqual(snapshot.values['rows'],rows);self.assertEqual(snapshot.values['audit'],[])
+
+class DuplicatePolicyTests(unittest.TestCase):
+ def test_postal_repeats_and_configured_unique_keys(self):
+  c=copy.deepcopy(DEFAULT_CONTRACT);c.update(required_columns=[],identifier_columns=['zip_code','person_id'],numeric_columns=[],numeric_ranges={},date_columns=[],date_order_pairs=[],category_maps={})
+  rows=[{ROW:2,'zip_code':'00123','person_id':'a'},{ROW:3,'zip_code':'00123','person_id':'b'}]
+  self.assertFalse(any(x['issue']=='Repeated identifier candidate' for x in detect_issues(rows,['zip_code','person_id'],c)))
+  c['duplicate_unique_columns']=['zip_code']
+  self.assertTrue(any(x['column']=='zip_code' for x in detect_issues(rows,['zip_code','person_id'],c)))
+  c['duplicate_unique_columns']=[];c['allowed_duplicate_columns']=['zip_code']
+  self.assertFalse(detect_issues(rows,['zip_code','person_id'],c))
+ def test_m2_precedence_at_exactly_five_percent(self):
+  from review import review_tables
+  rows=[{ROW:i+2,'value':'' if i==0 else str(i)} for i in range(20)]
+  c=copy.deepcopy(DEFAULT_CONTRACT);c.update(required_columns=[],identifier_columns=[],numeric_columns=['value'],numeric_ranges={},date_columns=[],date_order_pairs=[],category_maps={})
+  s={'rows':rows,'columns':['value'],'contract':c,'plan':[]}
+  _,review=review_tables(s,{'value':'Critical'})
+  self.assertEqual(next(r for r in review if r['id']=='missing:value')['rule'],'M2')
+  _,review=review_tables(s,{'value':'Non-critical'})
+  self.assertEqual(next(r for r in review if r['id']=='missing:value')['rule'],'M3')

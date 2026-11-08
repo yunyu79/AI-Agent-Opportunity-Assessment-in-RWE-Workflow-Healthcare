@@ -180,7 +180,7 @@ if snapshot.next==('human_review',) and not run['error']:
     importance={c:('Critical' if c in critical else 'Non-critical' if c in noncritical else 'Unconfirmed') for c in state['columns']}
     summary, review = review_tables(state,importance)
     import hashlib
-    context_key=hashlib.sha256(json.dumps([review,run['objectives'],importance,model],sort_keys=True).encode()).hexdigest()
+    context_key=hashlib.sha256(json.dumps([review,run['objectives'],importance,model,load_skill()[1]],sort_keys=True).encode()).hexdigest()
     st.caption('Sol assesses likely reasons and recommends a method using study objectives, importance and aggregate issue descriptions. No record values are sent. Data changes still require your approval.')
     review_consent=st.checkbox('Allow this review context to be sent to OpenAI.',key='review-consent-'+project_id)
     cached=run.get('llm_review',{})

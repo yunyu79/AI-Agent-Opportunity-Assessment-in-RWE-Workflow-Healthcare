@@ -38,7 +38,10 @@ def detect_issues(rows, columns, contract):
         if col in contract['category_maps']:
             mapping=contract['category_maps'][col];known={v.strip().casefold() for v in mapping.values()}|{v.strip().casefold() for v in mapping}
             add(col,'Unexpected category',[r[ROW] for r in observed if str(r[col]).strip().casefold() not in known],'Nonmissing category is outside the configured dictionary; verify coding or dictionary completeness.')
-        if col in contract['identifier_columns']:
+        expected_unique=contract.get('duplicate_unique_columns',contract['identifier_columns'])
+        allowed_repeats=set(contract.get('allowed_duplicate_columns',[]))
+        postal=col.lower().replace('_','').replace(' ','') in ('zip','zipcode','postalcode','postcode')
+        if col in expected_unique and col not in allowed_repeats and (not postal or col in contract.get('duplicate_unique_columns',[])):
             groups=defaultdict(list)
             for r in observed:groups[r[col]].append(r[ROW])
             ids=[i for group in groups.values() if len(group)>1 for i in group]

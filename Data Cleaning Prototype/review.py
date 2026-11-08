@@ -38,7 +38,7 @@ def review_tables(state, importance=None):
         summary.append({'column':col,'affected_cells_estimate':len(affected),'percentage of missing':pct})
         if missing_rows:
             role=importance.get(col,'Unconfirmed')
-            rule='M4' if pct>20 else 'M3' if pct>=5 else 'M1' if role=='Non-critical' else 'M2'
+            rule='M2' if pct<=5 and role!='Non-critical' else 'M4' if pct>20 else 'M3' if pct>=5 else 'M1'
             observed=[r[col] for r in rows if not is_missing(r[col],contract)]
             numeric=col in contract['numeric_columns'] and bool(observed) and all(as_number(v) is not None and as_number(v).is_finite() for v in observed)
             identifier=col in contract['identifier_columns'] or col.lower()=='id' or col.lower().endswith('_id')
@@ -49,11 +49,16 @@ def review_tables(state, importance=None):
                 options+=ASSESS
             suggestion={
                 'M1':'Keep missing values; consider excluding this non-critical variable if unused. Assess joint row loss before complete-case deletion.',
-                'M2':'Keep pending study assessment: criticality or missingness mechanism is unresolved; do not automatically delete or fill.',
-                'M3':'Assess mechanism and auxiliary variables; compare complete-case with suitable imputation / MICE. Retain until assessment is complete.',
+                'M2':'Recommend ordinary imputation: median for skewed numeric values or outliers, mean for approximately symmetric numeric values, mode for suitable categories. Explain exceptions for identifiers or structural/all-missing fields.',
+                'M3':'Choose the best justified method among ordinary median/mean/mode imputation, MICE, ML and a validated proxy. Explain suitability and prerequisites.',
                 'M4':'Assess recoverability first; compare exclusion, MICE, validated ML or proxy. Preserve critical variables pending assessment.',
             }[rule]
             review.append(dict(id='missing:'+col,column=col,issue='Missing values',reason=f'{len(missing_rows)} of {len(rows)} values match configured missing markers; root cause is not established.',affected_cells_estimate=len(missing_rows),missing_percent=pct,rule=rule,importance=role,suggested_plan=suggestion+' Examine reasons; MCAR/MAR/MNAR is uncertain until supported by evidence. Present suitable removal, imputation, MICE, ML and proxy alternatives and obtain approval before row changes.',selected_action=KEEP,options=options))
+        if missing_rows:
+            numbers=[as_number(v) for v in observed] if numeric else []
+            if numbers:
+                from statistics import median
+                review[-1]['numeric_summary']={'observed_count':len(numbers),'mean':str(sum(numbers)/len(numbers)),'median':str(median(numbers)),'minimum':str(min(numbers)),'maximum':str(max(numbers))}
         for action in state.get('plan',[]):
             if action['column']==col and action['tool']!='normalize_missing':
                 review.append(dict(id=action['id'],column=col,issue='Format inconsistency',reason=action['reason'],affected_cells_estimate=action['affected_cells_estimate'],missing_percent=pct,rule='Explicit contract',importance=importance.get(col,'Unconfirmed'),suggested_plan=action['reason'],selected_action=KEEP,options=[KEEP,'Apply suggested normalization']))
