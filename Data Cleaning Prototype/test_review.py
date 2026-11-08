@@ -40,3 +40,13 @@ class ReviewTests(unittest.TestCase):
   summary,_=review_tables(s)
   self.assertEqual(summary[1]['affected_cells_estimate'],3)
 if __name__=='__main__':unittest.main()
+
+class RecommendationDefaults(unittest.TestCase):
+ def test_mapping_and_ambiguous_removal(self):
+  _,review=review_tables(ReviewTests().state())
+  entry=next(r for r in review if r['id']=='missing:age')
+  self.assertEqual(recommendation_action(entry,'imputation by mean'),'Impute mean')
+  self.assertEqual(recommendation_action(entry,'remove'),'remove — assessment required')
+  s=ReviewTests().state()
+  rows,cols,audit,pending=execute_treatments(s['rows'],s['columns'],s['contract'],review,{'missing:age':recommendation_action(entry,'remove')})
+  self.assertEqual(rows,s['rows']);self.assertEqual(audit,[]);self.assertTrue(pending)

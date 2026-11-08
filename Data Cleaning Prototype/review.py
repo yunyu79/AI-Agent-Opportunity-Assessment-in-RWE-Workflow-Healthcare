@@ -65,6 +65,8 @@ def review_tables(state, importance=None):
     for finding in diagnostics:
         col=finding['column']
         review.append(dict(id='diagnostic:'+col+':'+finding['issue'],column=col,issue=finding['issue'],reason=finding['reason'],source_rows=finding['source_rows'],affected_cells_estimate=len(finding['source_rows']),missing_percent=next((x['percentage of missing'] for x in summary if x['column']==col),None),rule='Diagnostic review',importance=importance.get(col,'Unconfirmed'),suggested_plan='Assess evidence and source records before correction; retain until an appropriate action is approved.',selected_action=KEEP,options=[KEEP,'Investigate source — assessment required']))
+    for entry in review:
+        entry['options'] += [method+' — assessment required' for method in ('remove','imputation by median','imputation by mean','imputation by mode','MICE','ML','proxy') if method+' — assessment required' not in entry['options']]
     return summary, review
 
 
@@ -82,7 +84,7 @@ def execute_treatments(rows,columns,contract,review,choices):
         choice=choices.get(entry['id'],KEEP)
         if choice==KEEP or not entry['id'].startswith('missing:'): continue
         col=entry['column']
-        if choice in ASSESS:
+        if choice in ASSESS or 'assessment required' in choice:
             pending.append({'column':col,'method':choice,'status':'Assessment required; no values changed'}); continue
         targets=[r for r in out if is_missing(r[col],contract)]
         common=dict(rule=entry['rule'],column=col,decision=choice)
@@ -152,3 +154,14 @@ def review_workbook(summary,review,choices=None):
             letter=col[0].column_letter;sheet.column_dimensions[letter].width=48 if letter in ('C','H') and sheet==review_sheet else 28
         for row in range(2,sheet.max_row+1): sheet.row_dimensions[row].height=72 if sheet==review_sheet else 30
     buf=io.BytesIO();wb.save(buf);return buf.getvalue()
+
+
+def recommendation_action(entry, suggested):
+    """Map a recommendation to an executable choice or an explicit assessment."""
+    mapping={'imputation by median':'Impute median','imputation by mean':'Impute mean',
+             'imputation by mode':'Impute mode','MICE':ASSESS[0],'ML':ASSESS[1],'proxy':ASSESS[2]}
+    target=mapping.get(suggested)
+    if target in entry['options']:return target
+    if suggested in ('remove','imputation by median','imputation by mean','imputation by mode','MICE','ML','proxy'):
+        return suggested+' — assessment required'
+    return KEEP

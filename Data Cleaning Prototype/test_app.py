@@ -23,6 +23,8 @@ class AppTests(unittest.TestCase):
   with patch('llm_review.explain_review',side_effect=lambda review,*args: {r['id']:{'reasons':'Evidence insufficient; assess mechanism.','suggested_plan':'MICE'} for r in review}):
    next(c for c in app.checkbox if c.label=='Allow this review context to be sent to OpenAI.').check().run()
    self.assertTrue(any(list(df.value.columns)==['Column name','Data issue','Reasons','Suggested plan','Action'] for df in app.dataframe))
+  grid=next(df.value for df in app.dataframe if list(df.value.columns)==['Column name','Data issue','Reasons','Suggested plan','Action'])
+  self.assertTrue((grid['Action']==grid['Suggested plan']).all())
   run=app.session_state['run'];self.assertEqual(run['graph'].get_state(run['config']).values['audit'],[])
   next(b for b in app.button if b.label=='Apply selected actions').click().run()
   self.assertEqual(len(app.exception),0)
@@ -62,4 +64,6 @@ class AssessmentFailureTests(AppTests):
    app.run()
    self.assertEqual(call.call_count,1)
    self.assertTrue(next(b for b in app.button if b.label=='Apply selected actions').disabled)
-   run=app.session_state['run'];self.assertEqual(run['graph'].get_state(run['config']).values['audit'],[])
+   grid=next(df.value for df in app.dataframe if list(df.value.columns)==['Column name','Data issue','Reasons','Suggested plan','Action'])
+  self.assertTrue((grid['Action']=='Keep unchanged').all())
+  run=app.session_state['run'];self.assertEqual(run['graph'].get_state(run['config']).values['audit'],[])

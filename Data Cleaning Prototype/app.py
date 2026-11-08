@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from exporting import excel_bundle
-from review import review_tables, review_workbook, KEEP
+from review import review_tables, review_workbook, KEEP, recommendation_action
 from llm_review import explain_review
 from diagnostics import detect_issues
 from project_store import save_project, load_project, close_project
@@ -201,19 +201,23 @@ if snapshot.next==('human_review',) and not run['error']:
         st.error(run['llm_review_error'])
     # A single spreadsheet widget keeps the five columns together at narrow widths.
     visible=[]
+    explicit=run.setdefault('explicit_choices',{}).setdefault(str(state['round']),{})
     for r in review:
         explanation=explanations.get(r['id'],{})
-        saved=run.get('draft_choices',{}).get(str(state['round']),{}).get(r['id'],KEEP)
-        visible.append({'Column name':r['column'],'Data issue':r['issue'],'Reasons':explanation.get('reasons','Assessment unavailable — see message above'),'Suggested plan':explanation.get('suggested_plan','Not generated'),'Action':saved if saved in r['options'] else KEEP})
+        saved=explicit.get(r['id'],recommendation_action(r,explanation.get('suggested_plan')))
+        visible.append({'Column name':r['column'],'Data issue':r['issue'],'Reasons':explanation.get('reasons','Assessment unavailable — see message above'),'Suggested plan':recommendation_action(r,explanation.get('suggested_plan')) if explanation else 'Not generated','Action':saved if saved in r['options'] else KEEP})
     with st.expander('Issue details and affected source records'):
         st.caption('Checks cover configured numeric, category, identifier and date rules; they cannot discover every domain-specific inconsistency. Repeated identifiers and statistical outliers are candidates, not proven errors.')
         for finding in review:
             if finding.get('source_rows'):
                 st.write(finding['column']+' · '+finding['issue']+' · '+str(len(finding['source_rows']))+' records')
                 st.dataframe(pd.DataFrame([r for r in state['rows'] if r[ROW] in set(finding['source_rows'])]),hide_index=True)
+    st.caption('Click an Action cell to open its dropdown. Each row starts with its suggested plan; your edits are saved. Removal requires choosing rows versus column explicitly. Assessment-only choices never modify data.')
     all_options=list(dict.fromkeys(o for r in review for o in r['options']))
-    edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',height=480,num_rows='fixed',disabled=['Column name','Data issue','Reasons','Suggested plan'],column_config={'Column name':st.column_config.TextColumn(width='medium'),'Data issue':st.column_config.TextColumn(width='medium'),'Reasons':st.column_config.TextColumn(width='large'),'Suggested plan':st.column_config.TextColumn(width='medium'),'Action':st.column_config.SelectboxColumn(options=all_options,required=True,width='large')},key='review-grid-'+project_id+'-'+str(state['round'])+'-'+context_key+'-'+str(bool(explanations))) if visible else pd.DataFrame()
+    edited=st.data_editor(pd.DataFrame(visible),hide_index=True,width='stretch',height=480,num_rows='fixed',disabled=['Column name','Data issue','Reasons','Suggested plan'],column_config={'Column name':st.column_config.TextColumn(width='medium'),'Data issue':st.column_config.TextColumn(width='medium'),'Reasons':st.column_config.TextColumn(width='large'),'Suggested plan':st.column_config.TextColumn(width='medium'),'Action':st.column_config.SelectboxColumn(options=all_options,required=True,width='large')},key='review-grid-'+project_id+'-'+str(state['round'])+'-'+context_key+'-defaults-v2-'+hashlib.sha256(json.dumps(explanations,sort_keys=True).encode()).hexdigest()) if visible else pd.DataFrame()
     choices={r['id']:edited.iloc[i]['Action'] for i,r in enumerate(review)}
+    for i,r in enumerate(review):
+        if choices[r['id']]!=visible[i]['Action']:explicit[r['id']]=choices[r['id']]
     run.setdefault('draft_choices',{})[str(state['round'])]=choices
     persist()
     invalid=[r['column'] for r in review if choices[r['id']] not in r['options']]
@@ -221,7 +225,7 @@ if snapshot.next==('human_review',) and not run['error']:
     with st.expander('Available options for each issue'):
         for r in review: st.write(r['column']+' · '+r['issue']+': '+ '; '.join(r['options']))
     st.caption('MICE, ML and proxy are assessment choices: they preserve values and leave output provisional. This prototype does not execute these models. Numeric imputation is available only for validated numeric columns, never identifiers.')
-    export_review=[dict(r,reason=explanations.get(r['id'],{}).get('reasons','Assessment unavailable — see app message'),suggested_plan=explanations.get(r['id'],{}).get('suggested_plan','Not generated')) for r in review]
+    export_review=[dict(r,reason=explanations.get(r['id'],{}).get('reasons','Assessment unavailable — see app message'),suggested_plan=recommendation_action(r,explanations.get(r['id'],{}).get('suggested_plan')) if explanations else 'Not generated') for r in review]
     st.download_button('Download review Excel form',review_workbook(summary,export_review,choices),'proposed_cleaning_plan.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     st.caption('Excel includes Summary and Review sheets with dropdowns. Confirm choices in this app; importing an edited workbook is not supported.')
     loss=sum(any(r['column'] in row and (row[r['column']] is None or str(row[r['column']]).strip().casefold() in {v.strip().casefold() for v in state['contract']['missing_tokens']}) for r in review if choices[r['id']]=='Complete-case: delete rows missing this column') for row in state['rows'])
