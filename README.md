@@ -1,12 +1,13 @@
 # AI Agent Opportunity Assessment in RWE and HEOR
 
-## 1. Purpose
+## 1. Overview 
 
+### Purpose
 **AI transformation** is particularly valuable in healthcare workflows that evaluate medicines after approval. Real-world evidence (RWE) teams use routine-care data to study how well medicines work in practice and what they cost. Preparing that evidence often requires **repeated manual work** across datasets, from finding and explaining data quality issues to applying cleaning rules and verifying the results.
 
 This project maps the RWE workflow, identifies and ranks the scenarios most likely to benefit from AI, and connects each priority problem to a specific solution in the built agent. Then it validates an agent for the highest-ranked scenario and estimates the potential return on investment.
 
-## Key finding and proposed solution
+### Key finding and proposed solution
 
 After screening candidate scenarios across the RWE workflow, **data cleaning and standardization (W04) ranked first** under the project's default weights. We selected it for the first prototype and built a human-reviewed agent around five recurring problems.
 
@@ -18,7 +19,7 @@ After screening candidate scenarios across the RWE workflow, **data cleaning and
 | Time-consuming missing-value calculations - Analysts repeatedly compute replacement values and resolve cases | The agent applies various replacement methods and calls external tools to calculate via MCP so the calculation can be done in a short time. |
 | Slow quality control - QC programmers check errors and mismatching records back-and-forth. | The agent troubleshoots errors consistently, and shows cleaned data and produces traceable reports so reviewers can verify the applied methods and remaining issues. |
 
-## What this means for RWE teams
+### What this means for RWE teams
 
 Imagine RWE analysts are preparing a post-approval analysis of treatment costs and outcomes. The analysts find missing cost values and several repeated records, and they spend a large amount of time dealing with these data issues and additional time preparing the report for review. The agent can deal with data issues and bring findings and proposed actions into one review table, so the analyst can check the affected records, approve only the appropriate changes, and easily get reports for further review, which enhances operational efficiency, increases project capacity, and creates opportunities for revenue growth.
 
