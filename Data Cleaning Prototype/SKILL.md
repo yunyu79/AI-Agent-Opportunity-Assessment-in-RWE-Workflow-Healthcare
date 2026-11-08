@@ -18,7 +18,7 @@ Use GPT-6.1 Sol (`gpt-6.1-sol`) by default for LLM planning. Keep critical/non-c
 
 | Column name | Data issue | Reasons | Suggested plan | Action |
 | --- | --- | --- | --- | --- |
-| Source variable | Observed issue | LLM assessment of likely causes, evidence and uncertainty | One of remove, imputation by median/mean/mode, MICE, ML, proxy | Per-row dropdown of applicable user choices |
+| Source variable | Observed issue | LLM assessment of likely causes, evidence and uncertainty | One of removal, imputation(median/mean/mode), MICE, ML, proxy | Per-row dropdown of applicable user choices |
 
 Ask the LLM to investigate causes using study objectives, importance, permitted profiles and schema. Explain plausible reasons and evidence gaps; do not fabricate diagnoses or infer MCAR/MAR/MNAR from missing percentages alone. Distinguish hypotheses from established facts. Choose one suggested method from the listed set and explain prerequisites in Reasons. If evidence is insufficient, label the recommendation provisional and request further assessment.
 
