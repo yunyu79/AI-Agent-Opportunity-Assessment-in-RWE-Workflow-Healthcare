@@ -51,7 +51,10 @@ def persist():
 
 
 st.title('RWE Data Cleaning Agent')
-st.caption('LangGraph · profile → plan → human review → cleaning tools → validation')
+if st.button('↻ Rerun',key='rerun_app',help='Refresh this screen while keeping your project, selections and results.'):
+    persist()
+    st.rerun()
+st.caption('Review interface v2 · Submit button below the table')
 st.info('Use synthetic or de-identified data. Offline mode uses deterministic rules; OpenAI mode uses an LLM to select among allowed tools. Every change requires your approval.')
 
 
@@ -223,12 +226,13 @@ if snapshot.next==('human_review',) and not run['error']:
     invalid=[r['column'] for r in review if choices[r['id']] not in r['options']]
     if invalid: st.error('Selected treatment is not applicable to: '+', '.join(invalid)+'. Choose a valid option from the per-column list below.')
     st.caption('Draft choices only — editing this table does not change your data. Click Approve below to execute the selected supported actions; assessment-only methods remain pending.')
-    with st.form('review-'+str(state['round'])):
-        left,right=st.columns(2)
-        apply=left.form_submit_button('Approve and apply selected actions',type='primary',disabled=bool(invalid) or not explanations)
-        cancel=right.form_submit_button('Cancel further cleaning')
-    with st.expander('Available options for each issue'):
-        for r in review: st.write(r['column']+' · '+r['issue']+': '+ '; '.join(r['options']))
+    st.markdown('### Submit your cleaning choices')
+    apply=st.button('Approve and apply selected actions',key='approve-actions-'+str(state['round']),type='primary',width='stretch',disabled=bool(invalid) or not explanations)
+    if invalid:
+        st.warning('Submission is disabled until each Action is valid for its row.')
+    elif not explanations:
+        st.info('Submission is disabled until the LLM review is ready. See the consent or API message above.')
+    cancel=st.button('Cancel further cleaning',key='cancel-review-'+str(state['round']))
     st.caption('MICE, ML and proxy are assessment choices: they preserve values and leave output provisional. This prototype does not execute these models. Numeric imputation is available only for validated numeric columns, never identifiers.')
     export_review=[dict(r,reason=explanations.get(r['id'],{}).get('reasons','Assessment unavailable — see app message'),suggested_plan=recommendation_action(r,explanations.get(r['id'],{}).get('suggested_plan')) if explanations else 'Not generated') for r in review]
     st.download_button('Download review Excel form',review_workbook(summary,export_review,choices),'proposed_cleaning_plan.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -236,10 +240,9 @@ if snapshot.next==('human_review',) and not run['error']:
     loss=sum(any(r['column'] in row and (row[r['column']] is None or str(row[r['column']]).strip().casefold() in {v.strip().casefold() for v in state['contract']['missing_tokens']}) for r in review if choices[r['id']]=='Complete-case: delete rows missing this column') for row in state['rows'])
     st.write(f'Combined complete-case row loss for current choices: {loss} / {len(state["rows"])}.')
     selected=[r['id'] for r in review if choices[r['id']]=='Apply suggested normalization']
-    note=st.text_input('Decision rationale / reviewer note',key='review_note-'+project_id+'-'+str(state['round']),on_change=persist)
     if apply or cancel:
         try:
-            run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'llm_review':explanations,'treatments':choices,'importance':importance,'note':note,'at':datetime.now(timezone.utc).isoformat()})
+            run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'llm_review':explanations,'treatments':choices,'importance':importance,'at':datetime.now(timezone.utc).isoformat()})
             with st.spinner('Applying approved tools and validating…'):
                 resume_agent(run['graph'],run['config'],selected if apply else [],cancel=bool(cancel),treatments=choices if apply else {},importance=importance)
             if not run['graph'].get_state(run['config']).next:
@@ -251,6 +254,7 @@ if snapshot.next==('human_review',) and not run['error']:
             st.error(str(exc))
 elif not snapshot.next:
     st.subheader('2 · Review completed')
+    st.info('This review has already been submitted or cancelled. Use Profile and propose plan to start another review; Rerun refreshes the screen without repeating cleaning.')
     if state.get('status')=='cancelled':
         st.warning('Further cleaning cancelled. Earlier approved changes, if any, remain visible and audited; the original dataset is preserved.')
     elif state.get('issues') or state.get('remaining_actions'):

@@ -12,6 +12,7 @@ class AppTests(unittest.TestCase):
  def test_summary_and_clickable_plan(self):
   app=AppTest.from_file(str(Path(__file__).with_name('app.py')),default_timeout=30).run()
   self.assertEqual(len(app.exception),0)
+  self.assertTrue(any(b.label=='↻ Rerun' for b in app.button))
   next(b for b in app.button if b.label=='Profile and propose plan').click().run()
   self.assertNotIn('run',app.session_state)
   next(a for a in app.text_area if a.label.startswith('Study objectives')).set_value('Study age and healthcare costs')
@@ -26,6 +27,11 @@ class AppTests(unittest.TestCase):
   grid=next(df.value for df in app.dataframe if list(df.value.columns)==['Column name','Data issue','Reasons','Suggested plan','Action'])
   self.assertTrue((grid['Action']==grid['Suggested plan']).all())
   run=app.session_state['run'];self.assertEqual(run['graph'].get_state(run['config']).values['audit'],[])
+  before=run['graph'].get_state(run['config']).values
+  next(b for b in app.button if b.label=='↻ Rerun').click().run()
+  self.assertEqual(run['graph'].get_state(run['config']).values,before)
+  self.assertFalse(any(x.label=='Decision rationale / reviewer note' for x in app.text_input))
+  self.assertFalse(any(x.label=='Available options for each issue' for x in app.expander))
   next(b for b in app.button if b.label=='Approve and apply selected actions').click().run()
   self.assertEqual(len(app.exception),0)
   self.assertEqual(run['graph'].get_state(run['config']).values['rows'],run['graph'].get_state(run['config']).values['original'])
