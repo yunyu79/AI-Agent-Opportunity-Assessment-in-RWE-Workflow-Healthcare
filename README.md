@@ -12,11 +12,11 @@ After screening candidate scenarios across the RWE workflow, **data cleaning and
 
 | Pain point | Agent solution |
 | --- | --- |
-| Slow issue detection - Analysts repeatedly inspect columns and records for missing values, outliers, duplicates, and rule violations. | The agent automatically detects data issues and provides summary so analysts can focus their review. |
+| Slow issue detection - Analysts repeatedly inspect columns and records for missing values, outliers, duplicates, and rule violations. | The agent automatically detects data issues and provides summaries so analysts can focus their review. |
 | Long waiting time in collaboration - Analysts and study leads need multiple exchanges to clarify likely causes and agree on next steps. | The agent drafts explanations from the available evidence, with a planned one-click report that would give study leads the likely causes, uncertainties, and proposed actions in one place. |
-| Inconsistent rule selection - The appropriate treatment depends on the study objective, the importance of the variable, and the pattern of missingness. | The agent recommends a treatment based on study context and the data profile, then lets analysts choose and approve the action. |
-| Time-consuming missing-value calculations - Analysts repeatedly compute replacement values and resolve cases such as tied modes. | The agent applies approved mean, median, or mode imputation and logs the affected cells so the calculation can be checked. |
-| Slow quality control - Reviewers repeatedly compare cleaning code, source records, and output to reconstruct what changed. | The agent shows original and cleaned data side by side and produces an audit trail and downloadable report so reviewers can verify the applied methods and remaining issues. |
+| Slow rule selection - The appropriate cleaning option depends on the multiple dimensions of studies. | The agent recommends selection based on documented study context and quickly examined data profile, then lets analysts choose and approve the action. |
+| Time-consuming missing-value calculations - Analysts repeatedly compute replacement values and resolve cases | The agent applies various replacement methods and calls external tools to calculate via MCP so the calculation can be done in a short time. |
+| Slow quality control - QC programmers check errors and mismatching records back-and-forth. | The agent troubleshoots errors consistently, and shows cleaned data and produces traceable reports so reviewers can verify the applied methods and remaining issues. |
 
 ## What this means for RWE teams
 
