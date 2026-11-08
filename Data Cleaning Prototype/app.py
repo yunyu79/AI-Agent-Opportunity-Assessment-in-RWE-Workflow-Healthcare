@@ -222,6 +222,11 @@ if snapshot.next==('human_review',) and not run['error']:
     persist()
     invalid=[r['column'] for r in review if choices[r['id']] not in r['options']]
     if invalid: st.error('Selected treatment is not applicable to: '+', '.join(invalid)+'. Choose a valid option from the per-column list below.')
+    st.caption('Draft choices only — editing this table does not change your data. Click Approve below to execute the selected supported actions; assessment-only methods remain pending.')
+    with st.form('review-'+str(state['round'])):
+        left,right=st.columns(2)
+        apply=left.form_submit_button('Approve and apply selected actions',type='primary',disabled=bool(invalid) or not explanations)
+        cancel=right.form_submit_button('Cancel further cleaning')
     with st.expander('Available options for each issue'):
         for r in review: st.write(r['column']+' · '+r['issue']+': '+ '; '.join(r['options']))
     st.caption('MICE, ML and proxy are assessment choices: they preserve values and leave output provisional. This prototype does not execute these models. Numeric imputation is available only for validated numeric columns, never identifiers.')
@@ -232,10 +237,6 @@ if snapshot.next==('human_review',) and not run['error']:
     st.write(f'Combined complete-case row loss for current choices: {loss} / {len(state["rows"])}.')
     selected=[r['id'] for r in review if choices[r['id']]=='Apply suggested normalization']
     note=st.text_input('Decision rationale / reviewer note',key='review_note-'+project_id+'-'+str(state['round']),on_change=persist)
-    with st.form('review-'+str(state['round'])):
-        left,right=st.columns(2)
-        apply=left.form_submit_button('Apply selected actions',type='primary',disabled=bool(invalid) or not explanations)
-        cancel=right.form_submit_button('Cancel further cleaning')
     if apply or cancel:
         try:
             run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'llm_review':explanations,'treatments':choices,'importance':importance,'note':note,'at':datetime.now(timezone.utc).isoformat()})
