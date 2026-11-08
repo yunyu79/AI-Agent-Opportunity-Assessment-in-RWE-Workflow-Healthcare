@@ -203,5 +203,12 @@ def resume_agent(graph, config, approved_ids=None, cancel=False, treatments=None
     approved_ids = approved_ids or []
     if not isinstance(approved_ids,list) or any(not isinstance(i,str) for i in approved_ids) or len(set(approved_ids)) != len(approved_ids) or any(i not in pending for i in approved_ids):
         raise ValueError('Review action IDs do not match the pending plan.')
+    # Preflight on copies before consuming the human interrupt, so invalid choices
+    # can be revised without stranding the graph in a failed apply node.
+    if not cancel:
+        values=snapshot.values
+        _,review=review_tables(values,importance or {})
+        preview,_=execute(values['rows'],values['columns'],values['contract'],values['plan'],approved_ids,values.get('round',1))
+        execute_treatments(preview,values['columns'],values['contract'],review,treatments or {})
     graph.invoke(Command(resume={'approved_ids':approved_ids,'cancel':cancel,'treatments':treatments or {},'importance':importance or {}}),config)
     return graph.get_state(config)

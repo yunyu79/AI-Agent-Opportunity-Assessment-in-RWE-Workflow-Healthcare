@@ -40,3 +40,6 @@ Action dropdown defaults mirror the Suggested plan. Ambiguous removal defaults t
 
 ## Refresh and submit
 Use **↻ Rerun** at the top to refresh the running application without clearing the project or reapplying transformations. The visible interface marker is “Review interface v2”. A full-width **Approve and apply selected actions** button appears directly below the review table, with an explanation if it is disabled. The redundant available-options section and reviewer-note input were removed. Completed reviews show their submitted state. Rerun requires the Streamlit server to remain running; it cannot launch a stopped server or download GitHub updates.
+
+## Approved results and management report
+The original/cleaned comparison keeps the cleaned side empty until an approved apply step succeeds. Selection alone does not produce cleaned output. A tied mode means multiple categories share the largest count; preflight rejects that submission without changing data, and the reviewer can change the choice and submit again. After submission, Download management report provides a printable HTML document with objectives, issue columns, executed methods, before/after counts, reconciliation and unresolved findings. Open the HTML in a browser to print or save as PDF. Proposed or assessment-only methods are never described as executed.

@@ -19,6 +19,7 @@ class AppTests(unittest.TestCase):
   next(b for b in app.button if b.label=='Profile and propose plan').click().run()
   self.assertEqual(len(app.exception),0)
   self.assertTrue(any('affected_cells_estimate' in df.value.columns for df in app.dataframe))
+  self.assertTrue(any('No cleaned results yet' in x.value for x in app.info))
   self.assertTrue(any(b.label=='Retry LLM assessment' for b in app.button))
   self.assertTrue(next(b for b in app.button if b.label=='Approve and apply selected actions').disabled)
   with patch('llm_review.explain_review',side_effect=lambda review,*args: {r['id']:{'reasons':'Evidence insufficient; assess mechanism.','suggested_plan':'MICE'} for r in review}):

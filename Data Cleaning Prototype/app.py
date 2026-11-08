@@ -14,6 +14,7 @@ from exporting import excel_bundle
 from review import review_tables, review_workbook, KEEP, recommendation_action
 from llm_review import explain_review
 from diagnostics import detect_issues
+from reporting import management_report
 from project_store import save_project, load_project, close_project
 
 from agent import build_agent, initial_state, resume_agent, load_skill
@@ -172,7 +173,7 @@ st.caption('Affected cells count distinct source cells with detected issues; ove
 summary, _ = review_tables(state)
 st.dataframe(pd.DataFrame(summary), hide_index=True, width='stretch', column_config={'percentage of missing':st.column_config.NumberColumn(format='%.2f%%')})
 
-if snapshot.next==('human_review',) and not run['error']:
+if snapshot.next==('human_review',):
     st.subheader('2 · Review the proposed plan')
     st.caption('Review each column below. Click a Selected action cell to choose a treatment; then confirm. The suggested plan does not execute automatically.')
     with st.expander('Study importance and detailed settings'):
@@ -242,9 +243,11 @@ if snapshot.next==('human_review',) and not run['error']:
     selected=[r['id'] for r in review if choices[r['id']]=='Apply suggested normalization']
     if apply or cancel:
         try:
-            run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'llm_review':explanations,'treatments':choices,'importance':importance,'at':datetime.now(timezone.utc).isoformat()})
+
             with st.spinner('Applying approved tools and validating…'):
                 resume_agent(run['graph'],run['config'],selected if apply else [],cancel=bool(cancel),treatments=choices if apply else {},importance=importance)
+            run.setdefault('reviews',[]).append({'round':state['round'],'approved':selected if apply else [],'cancelled':bool(cancel),'llm_review':explanations,'treatments':choices,'importance':importance,'at':datetime.now(timezone.utc).isoformat()})
+            run['error']=None
             if not run['graph'].get_state(run['config']).next:
                 run['finished_seconds']=round(time.monotonic()-run['started_clock'],2)
             persist()
@@ -267,8 +270,11 @@ with left:
     st.subheader('Original data')
     st.dataframe(display_rows(state['original']),hide_index=True,width='stretch')
 with right:
-    st.subheader('Current / cleaned data')
-    st.dataframe(display_rows(state['rows']),hide_index=True,width='stretch')
+    st.subheader('Cleaned data — after approval')
+    if any(t.get('node')=='apply_tools' for t in state.get('trace',[])):
+        st.dataframe(display_rows(state['rows']),hide_index=True,width='stretch')
+    else:
+        st.info('No cleaned results yet. Select actions in the review table and click Approve and apply selected actions. Your original data is unchanged.')
 
 with st.expander('Quality findings',expanded=bool(state.get('issues'))):
     if state.get('issues'): st.dataframe(pd.DataFrame(state['issues']),hide_index=True,width='stretch')
@@ -284,7 +290,7 @@ with st.expander('LangGraph execution trace and API usage'):
 with st.expander('Graph architecture'):
     st.code(run['graph'].get_graph().draw_mermaid(),language='mermaid')
 
-if not snapshot.next and not run['error']:
+if not snapshot.next and not run['error'] and any(t.get('node')=='apply_tools' for t in state.get('trace',[])):
     st.subheader('3 · Export results')
     metadata={'filename':run['filename'],'source_sha256':run['source_hash'],'started_at':run['started_at'],
               'elapsed_wall_seconds':run.get('finished_seconds',round(time.monotonic()-run['started_clock'],2)),
@@ -300,6 +306,9 @@ if not snapshot.next and not run['error']:
         z.writestr('original_input.csv',run['source_bytes'])
         z.writestr('cleaned.csv',csv_bytes(state['rows'],state['columns']))
         z.writestr('audit_report.json',json.dumps(report,indent=2,ensure_ascii=False))
+    narrative=management_report(state,run)
+    st.download_button('Download management report',narrative,'data_cleaning_report.html','text/html',width='stretch')
+    st.caption('A readable report for sharing with your leader: issues by column, methods actually applied, results and remaining concerns. Open it in a browser to print or save as PDF.')
     a,b,c=st.columns(3)
     a.download_button('Cleaned CSV',csv_bytes(state['rows'],state['columns']),'cleaned.csv','text/csv',width='stretch')
     b.download_button('Review workbook',excel_bundle(state,metadata),'cleaning_review.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',width='stretch')
