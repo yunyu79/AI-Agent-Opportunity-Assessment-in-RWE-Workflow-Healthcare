@@ -2,9 +2,21 @@
 
 ## 1. Purpose
 
-This project identifies where AI agents could reduce manual work and boost efficiency in the workflow of real-world evidence (RWE) in the healthcare industry. 
+AI transformation is particularly valuable in healthcare workflows that evaluate medicines after approval. Real-world evidence (RWE) and health economics and outcomes research (HEOR) teams use routine-care data to study how well medicines work in practice and what they cost. Preparing that evidence often requires repeated manual work across datasets, from finding and explaining data quality issues to applying cleaning rules and verifying the results.
 
-It maps the workflow, compares candidate scenario opportunities, and develops a data-cleaning prototype to test whether an agent can help analysts identify issues and apply approved corrections. A first-round validation and ROI estimate provide a basis for deciding whether to run a broader pilot.
+This project maps the RWE workflow, identifies and ranks the scenarios most likely to benefit from AI, and connects each priority problem to a specific solution. It builds and validates an agent for the highest-ranked scenario and estimates the potential return on investment.
+
+## Key finding and proposed solution
+
+After screening candidate scenarios across the RWE workflow, **data cleaning and standardization (W04) ranked first** under the project's default weights. We selected it for the first prototype and built a human-reviewed agent around five recurring problems.
+
+| Pain point | Agent solution |
+| --- | --- |
+| Finding missing values, outliers, duplicates, and other data issues takes repeated inspection. | Profile the dataset automatically and present separate findings with counts and affected source records. |
+| Explaining why issues occurred requires clarification and back-and-forth. | Generate evidence-based explanations that distinguish likely causes from uncertainty. A planned one-click report for the study lead will summarize the reasons, supporting evidence, and proposed cleaning steps for review. |
+| Deciding which cleaning rule to use requires analyst judgment. | Recommend a rule and treatment using study objectives, variable importance, and the data profile. Let the analyst select an action and approve it before execution. |
+| Calculating replacement values for missing data is repetitive and time-consuming. | Run approved mean, median, or mode imputation consistently, handle tied modes reproducibly, and record affected values in the audit log. |
+| Quality control requires repeatedly comparing code, input data, and results. | Show original and cleaned data side by side, then provide a change log, quality checks, and a downloadable report of methods applied and remaining issues. |
 
 ## 2. Project workflow
 
