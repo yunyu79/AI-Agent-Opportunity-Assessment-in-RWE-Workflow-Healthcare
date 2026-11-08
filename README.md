@@ -12,7 +12,7 @@ After screening candidate scenarios across the RWE workflow, **data cleaning and
 
 | Pain point | Agent solution |
 | --- | --- |
-| Slow issue detection - Analysts repeatedly inspect columns and records for missing values, outliers, duplicates, and rule violations. | The agent profiles each dataset and shows issue counts and affected records so analysts can focus their review. |
+| Slow issue detection - Analysts repeatedly inspect columns and records for missing values, outliers, duplicates, and rule violations. | The agent automatically detects data issues and provides summary so analysts can focus their review. |
 | Long waiting time in collaboration - Analysts and study leads need multiple exchanges to clarify likely causes and agree on next steps. | The agent drafts explanations from the available evidence, with a planned one-click report that would give study leads the likely causes, uncertainties, and proposed actions in one place. |
 | Inconsistent rule selection - The appropriate treatment depends on the study objective, the importance of the variable, and the pattern of missingness. | The agent recommends a treatment based on study context and the data profile, then lets analysts choose and approve the action. |
 | Time-consuming missing-value calculations - Analysts repeatedly compute replacement values and resolve cases such as tied modes. | The agent applies approved mean, median, or mode imputation and logs the affected cells so the calculation can be checked. |
