@@ -2,9 +2,9 @@
 
 ## 1. Purpose
 
-AI transformation is particularly valuable in healthcare workflows that evaluate medicines after approval. Real-world evidence (RWE) and health economics and outcomes research (HEOR) teams use routine-care data to study how well medicines work in practice and what they cost. Preparing that evidence often requires repeated manual work across datasets, from finding and explaining data quality issues to applying cleaning rules and verifying the results.
+**AI transformation** is particularly valuable in healthcare workflows that evaluate medicines after approval. Real-world evidence (RWE) teams use routine-care data to study how well medicines work in practice and what they cost. Preparing that evidence often requires **repeated manual work** across datasets, from finding and explaining data quality issues to applying cleaning rules and verifying the results.
 
-This project maps the RWE workflow, identifies and ranks the scenarios most likely to benefit from AI, and connects each priority problem to a specific solution. It builds and validates an agent for the highest-ranked scenario and estimates the potential return on investment.
+This project maps the RWE workflow, identifies and ranks the scenarios most likely to benefit from AI, and connects each priority problem to a specific solution in the built agent. Then it validates an agent for the highest-ranked scenario and estimates the potential return on investment.
 
 ## Key finding and proposed solution
 
