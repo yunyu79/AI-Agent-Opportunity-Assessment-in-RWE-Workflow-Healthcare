@@ -1,0 +1,58 @@
+{
+  "controlled": {
+    "rows": 100,
+    "tp": 47,
+    "fp": 0,
+    "fn": 0,
+    "false_positives": [],
+    "false_negatives": [],
+    "rules": {
+      "score": "M2",
+      "cost": "M3",
+      "group": "M4",
+      "note": "M1"
+    },
+    "rule_correct": 4,
+    "rule_total": 4,
+    "imputation_correct": 5,
+    "imputation_total": 5,
+    "checks": {
+      "five approved median fills equal the independent expected value 53": true,
+      "full output equals expected, including untouched cells and leading zeros": true,
+      "audit covers exactly the approved cells": true,
+      "MICE is pending and cost remains unchanged": true,
+      "CSV round trip preserves all output cell strings": true
+    }
+  },
+  "timing_seconds_median_7_runs": {
+    "profile_and_review": 0.006983499974012375,
+    "approved_execution": 0.01617004198487848,
+    "statistics_and_csv": 0.0019387499196454883
+  },
+  "demo_manifest": {
+    "patient.csv": {
+      "sha256_matches": true,
+      "rows": 500,
+      "manifest_missing_expected": 150,
+      "detected_missing": 150,
+      "manifest_excess_duplicates_expected": 2,
+      "detected_excess_duplicates": 2
+    },
+    "medication.csv": {
+      "sha256_matches": true,
+      "rows": 500,
+      "manifest_missing_expected": 125,
+      "detected_missing": 125,
+      "manifest_excess_duplicates_expected": 0,
+      "detected_excess_duplicates": 0
+    },
+    "procedure.csv": {
+      "sha256_matches": true,
+      "rows": 500,
+      "manifest_missing_expected": 125,
+      "detected_missing": 125,
+      "manifest_excess_duplicates_expected": 1,
+      "detected_excess_duplicates": 1
+    }
+  }
+}
