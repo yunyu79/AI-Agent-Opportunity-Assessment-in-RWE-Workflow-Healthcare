@@ -18,11 +18,9 @@ After screening candidate scenarios across the RWE workflow, **data cleaning and
 | Time-consuming missing-value calculations - Analysts repeatedly compute replacement values and resolve cases such as tied modes. | The agent applies approved mean, median, or mode imputation and logs the affected cells so the calculation can be checked. |
 | Slow quality control - Reviewers repeatedly compare cleaning code, source records, and output to reconstruct what changed. | The agent shows original and cleaned data side by side and produces an audit trail and downloadable report so reviewers can verify the applied methods and remaining issues. |
 
-## What this means for a study team
+## What this means for RWE team
 
-Imagine a study lead preparing a post-approval analysis of treatment costs and outcomes. The analyst finds missing cost values and several repeated patient identifiers, and the lead needs to know whether the gaps or apparent duplicates could affect the analysis. The agent brings the findings and proposed treatments into one review table, so the analyst can check the affected records, distinguish repeat visits from true duplicates, and approve only the appropriate changes.
-
-When the cleaned dataset is handed over, the lead can see which issues were found, what was changed, and what still needs a decision. That makes the handoff easier to review and gives the team a record it can revisit when a result is challenged. The first-round synthetic validation checks the detection and execution steps. A timed pilot with independent QC would establish whether those gains carry over to real study work. [Validation results](research/data_cleaning_validation.md)
+Imagine RWE analysts are preparing a post-approval analysis of treatment costs and outcomes. The analysts find missing cost values and several repeated records, and they spend a large amount of time dealing with these data issues and additional time preparing the report for review. The agent can deal with data issues and bring findings and proposed actions into one review table, so the analyst can check the affected records, approve only the appropriate changes, and easily get reports for further review, which enhances operational efficiency, increases project capacity, and creates opportunities for revenue growth.
 
 ## 2. Project workflow
 
