@@ -63,7 +63,9 @@ The prototype profiles CSV inputs for missing values, outliers, duplicate candid
 
 - **GPT-6.1 Sol through the OpenAI Responses API** generates issue explanations and treatment recommendations from study context and aggregate findings.
 - **LangGraph** coordinates profiling, planning, human approval, execution, and validation.
-- **Markdown cleaning skill and Pydantic** provide treatment guidance and validate the structure of model responses.
+- **Skill authoring** codifies cleaning rules, treatment eligibility, and approval requirements in a reusable [data cleaning skill](Data%20Cleaning%20Prototype/SKILL.md).
+- **Prompt engineering with edge cases** guides recommendations for cases such as missingness at the 5% threshold, tied modes, and legitimate repeated ZIP codes, with instructions to explain uncertainty and defer methods when evidence is insufficient.
+- **Pydantic** validates the structure of model recommendations before the app displays them for review.
 - **Python and pandas** support rule-based data checks, approved transformations, and quality summaries.
 - **Streamlit** provides the analyst interface, editable review table, and approval controls.
 - **openpyxl** generates Excel review workbooks with treatment dropdowns.
