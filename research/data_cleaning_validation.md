@@ -1,39 +1,39 @@
-# 数据清洗 Agent 第一轮验证
+# First-round validation of the data cleaning agent
 
-验证对象：[GitHub 版本 fb9db275](https://github.com/yunyu79/AI-Agent-Opportunity-Assessment-in-RWE-Workflow-Healthcare/commit/fb9db275aa43595c54c99971fb848f2b909b1bfb)。本轮用合成数据验证检测、规则分档和已审批动作的执行。没有历史人工工时或独立人工 QC 记录，人工时间采用情景估算。
+Version evaluated: [fb9db275](https://github.com/yunyu79/AI-Agent-Opportunity-Assessment-in-RWE-Workflow-Healthcare/commit/fb9db275aa43595c54c99971fb848f2b909b1bfb). This round used synthetic data to check issue detection, rule assignment, and execution of approved actions. Human time is estimated because historical time logs and independent manual QC records were unavailable.
 
-## 实测结果
+## Measured results
 
-对 100 行受控数据做全量核对。先在构造样本时标明问题所在的列、类型和来源行，再运行 Agent，与预设答案逐项比对。这样同时覆盖了已标记和未标记的位置。计数单位是「列或全行范围 × 问题类型 × 来源行」，同一行可触发多种检查。重复组另行核对，组内两行均计为候选。合成样本包含相同 ZIP code，预期允许重复。
+We checked all 100 rows in a controlled fixture against issue locations and types specified during fixture construction. The unit of comparison was column or whole-row scope × issue type × source row. A row could trigger multiple checks. Both members of the duplicate group counted as candidates. Repeated ZIP codes were expected and permitted.
 
-| 指标 | 结果 | 核对口径 |
+| Metric | Result | What was checked |
 | --- | --- | --- |
-| 识别精确率 | 47/47，100% | 40 个缺失单元格，1 个 IQR 离群、1 个范围违规、1 个日期顺序违规，2 个重复标识成员和 2 个全行重复成员。离群与范围违规来自同一个值。 |
-| 识别召回率 | 47/47，100% | 全量核对预设问题，0 个误报，0 个漏报。ZIP 重复未报错。 |
-| 规则分档正确率 | 4/4，100% | 非关键列缺失 4% → M1，关键列缺失 5% → M2，缺失 10% → M3，缺失 21% → M4。 |
-| LLM 建议正确率 | 未测 | 本轮未调用在线模型，无法评估原因解释、建议质量或人工改选率。 |
-| 已审批修改的计算与执行正确率 | 5/5，100% | 对关键数值列批准中位数填补，5 个填补结果均为预先计算的 53。完整输出和审计日志匹配预期，未批准值保持原样。 |
-| 输出 QC | 5/5 项通过 | 填补值、完整输出、审计覆盖、MICE 待评估状态、外部 CSV 解析及前导零。MICE 未执行。 |
+| Detection precision | 47/47 (100%) | 40 missing cells, one IQR outlier, one range violation, one date-order violation, two repeated identifier candidates, and two exact duplicate candidates. The outlier and range violation came from the same value. |
+| Detection recall | 47/47 (100%) | All seeded findings were detected, with zero false positives and zero false negatives. Permitted ZIP code repetitions were unflagged. |
+| Missingness rule assignment | 4/4 (100%) | 4% missing in a noncritical column → M1, 5% in a critical column → M2, 10% → M3, and 21% → M4. |
+| LLM recommendation accuracy | Unmeasured | No live model call was made. The quality of explanations and recommendations and the rate of human overrides remain unmeasured. |
+| Calculation and execution accuracy | 5/5 (100%) | The approved median fill produced the independently expected value of 53 in all five cells. The full output and audit matched expectations. |
+| Output QC | 5/5 checks passed | Imputed values, full output, audit coverage, pending MICE status, and external CSV parsing with leading zeros preserved. MICE was deferred. |
 
-三份仓库示例各 500 行，共 1,500 行。输入文件哈希与清单一致。`patient.csv` 的 `race` 缺失 150 个、全行重复超额 2 行。`medication.csv` 的 `paid_amount` 缺失 125 个、全行重复超额 0 行。`procedure.csv` 的 `description` 缺失 125 个、全行重复超额 1 行。六项汇总指标均与清单一致。这三份文件没有逐项人工真值，所以这部分只用于汇总核对。
+We also checked three repository examples with 500 rows each. File hashes matched the manifest, and all six aggregate checks passed. `patient.csv` had 150 missing `race` values and two excess exact duplicates. `medication.csv` had 125 missing `paid_amount` values and zero excess duplicates. `procedure.csv` had 125 missing `description` values and one excess duplicate. The examples have aggregate reference counts only, so they support aggregate validation rather than issue-level accuracy estimates. The repository's 41 existing tests also passed.
 
-**发现的限制。** 外部 CSV 阅读器可以正确读取清洗结果。Agent 上传入口会拒绝导出 CSV 中的 `__source_row__` 保留列，因此直接把清洗结果重新上传给 Agent 的流程未通过。本次仅验证并记录问题。
+**Export limitation.** External CSV readers parse the cleaned output correctly. The agent's upload entry point rejects the reserved `__source_row__` column included in the export, so direct re-upload into the agent failed.
 
-## 时间对比与估算
+## Timing and planning estimates
 
-本机对 100 行受控样本重复运行 7 次，取各步骤中位数。Agent 的本地检测和生成审核表约 0.007 秒，执行已审批操作约 0.016 秒，统计和 CSV 序列化约 0.002 秒。这些是程序耗时，排除网页操作、在线模型、等待和人工审核，不能用来代表完整项目耗时。
+Across seven local runs on the 100-row controlled fixture, the median times were 0.007 seconds to detect issues and prepare the review table, 0.016 seconds to execute approved actions, and 0.002 seconds to calculate statistics and serialize the CSV. These timings cover local code execution. Browser interaction, online model latency, waiting, and human review were outside the timing scope.
 
-下表是假设同一人处理一份约 500 行的合成表、规则已知、QC 范围相同的规划估算。两组都保留独立 QC。计时单位为人工分钟，同一项工作只归入一个类别。范围反映简单与复杂情景，不是置信区间。
+The estimates below assume one analyst, an approximately 500-row table, known rules, and the same independent QC scope in both workflows. Units are active person-minutes per dataset. Each activity is counted once. Low, base, and high are planning scenarios rather than confidence intervals.
 
-| 类别 | 纯人工低 / 中 / 高 | Agent 辅助低 / 中 / 高 | 中位情景的活动拆分 |
+| Activity | Manual low / base / high | AI-assisted low / base / high | Base-case breakdown |
 | --- | ---: | ---: | --- |
-| 处理 | 25 / 40 / 65 | 10 / 18 / 35 | 人工：检查 15 + 清洗及导出 20 + 返工 5。Agent：设置 5 + 审核选择 8 + 导出及返工 5。 |
-| 沟通 | 5 / 10 / 20 | 5 / 8 / 20 | 人工：2 次 × 5 分钟。Agent：2 次 × 4 分钟。假设仍需要相同轮数的规则澄清。 |
-| QC | 12 / 20 / 35 | 10 / 15 / 30 | 人工：核对 15 + 复测 5。Agent：核对输出与审计 10 + 复测 5。 |
-| **合计** | **42 / 70 / 120** | **25 / 41 / 85** | 中位情景相差 29 分钟，仅作下一轮计时假设。 |
+| Processing | 25 / 40 / 65 | 10 / 18 / 35 | Manual: 15 inspection, 20 cleaning and export, 5 rework. AI: 5 setup, 8 review and selection, 5 export and rework. |
+| Communication | 5 / 10 / 20 | 5 / 8 / 20 | Two clarification rounds in each workflow, at five minutes per manual round and four per AI-assisted round. |
+| QC | 12 / 20 / 35 | 10 / 15 / 30 | Manual: 15 checks, 5 retest. AI: 10 output and audit checks, 5 retest. |
+| **Total** | **42 / 70 / 120** | **25 / 41 / 85** | **29 minutes of estimated savings in the base case.** |
 
-沟通等待和在线模型等待尚未测量。实际验证时另记从收到文件到交付的自然耗时，以及每位参与者的实际人工分钟数。历史项目没有工时记录时，安排同一输入的人工对照轮次，人工清洗员先独立工作，QC 按同一标准复核两种输出。现有结果可以作为第一轮功能基线，正式 ROI 需要真实工作计时和独立 QC。
+Response wait times and online model latency remain unmeasured. A paired manual comparison should capture active minutes for each participant and total elapsed time from intake to delivery. Have the manual analyst work independently and apply identical QC criteria to both outputs. The synthetic results establish a functional baseline. A realized ROI estimate needs timed work and independent QC.
 
-## 复现
+## Reproduction
 
-使用 `Data Cleaning Prototype/requirements.txt` 安装依赖后，从仓库根目录运行 `python research/validate_cleaning_agent.py`。脚本输出实际计数和运行时间，不需要 API 密钥。[原始结果 JSON](data_cleaning_validation_results.json)。
+Install dependencies from `Data Cleaning Prototype/requirements.txt`. From the repository root, run `python research/validate_cleaning_agent.py`. The script reports counts and timings without an API key. [Raw validation results](data_cleaning_validation_results.json).
