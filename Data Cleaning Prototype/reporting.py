@@ -20,6 +20,8 @@ def management_report(state, run):
         changes=[a for a in state.get('audit',[]) if a.get('column','All source columns')==col]
         counts=Counter(a.get('decision',a.get('action','Change')) for a in changes)
         applied='; '.join(f'{method}: {count} audit entries' for method,count in counts.items()) or 'No executed changes for this column'
+        allocations=Counter(str(a['after']) for a in changes if a.get('tie_method')=='balanced tied modes')
+        if allocations:applied+='; balanced tied-mode allocations (seed 42): '+', '.join(f'{category}: {count}' for category,count in sorted(allocations.items()))
         pending=[p['method'] for p in state.get('pending_methods',[]) if p['column']==col]
         unresolved=[f"{r['issue']} ({r['affected_cells_estimate']} affected records/cells)" for r in remaining if r['column']==col]
         issues='; '.join(f"{i['issue']} ({i['affected_cells_estimate']} affected records/cells)" for i in items) or 'Audit-only change'

@@ -1,6 +1,7 @@
 """Spreadsheet-style review models and explicitly approved treatments."""
 import copy
 import io
+import random
 from decimal import Decimal
 from collections import Counter
 from cleaning import ROW, as_number, proposed_value, quality_issues
@@ -100,7 +101,17 @@ def execute_treatments(rows,columns,contract,review,choices):
             if not observed: raise ValueError(f'{col}: cannot impute without observed values.')
             if choice=='Impute mode':
                 counts=Counter(observed); modes=[v for v,n in counts.items() if n==max(counts.values())]
-                if len(modes)!=1: raise ValueError(f'{col}: {len(modes)} categories tie for the highest frequency ({max(counts.values())} observations each), so there is no unique mode. Choose Keep unchanged or another suitable method, then submit again. No changes from this submission were applied.')
+                if len(modes)>1:
+                    # Balance marginal assignments, without inventing a record-level reason.
+                    rng=random.Random(42)
+                    modes=sorted(modes)
+                    rng.shuffle(modes)
+                    fills=[modes[i % len(modes)] for i in range(len(targets))]
+                    rng.shuffle(fills)
+                    for row,fill in zip(sorted(targets,key=lambda r:r[ROW]),fills):
+                        audit.append(dict(common,action='impute',source_row=row[ROW],before=row[col],after=fill,tie_method='balanced tied modes',seed=42,tied_modes=sorted(modes)))
+                        row[col]=fill
+                    continue
                 fill=modes[0]
             else:
                 nums=sorted(as_number(v) for v in observed)
