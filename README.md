@@ -12,11 +12,17 @@ After screening candidate scenarios across the RWE workflow, **data cleaning and
 
 | Pain point | Agent solution |
 | --- | --- |
-| Finding missing values, outliers, duplicates, and other data issues takes repeated inspection. | Profile the dataset automatically and present separate findings with counts and affected source records. |
-| Explaining why issues occurred requires clarification and back-and-forth. | Generate evidence-based explanations that distinguish likely causes from uncertainty. A planned one-click report for the study lead will summarize the reasons, supporting evidence, and proposed cleaning steps for review. |
-| Deciding which cleaning rule to use requires analyst judgment. | Recommend a rule and treatment using study objectives, variable importance, and the data profile. Let the analyst select an action and approve it before execution. |
-| Calculating replacement values for missing data is repetitive and time-consuming. | Run approved mean, median, or mode imputation consistently, handle tied modes reproducibly, and record affected values in the audit log. |
-| Quality control requires repeatedly comparing code, input data, and results. | Show original and cleaned data side by side, then provide a change log, quality checks, and a downloadable report of methods applied and remaining issues. |
+| Slow issue detection - Analysts repeatedly inspect columns and records for missing values, outliers, duplicates, and rule violations. | The agent profiles each dataset and shows issue counts and affected records so analysts can focus their review. |
+| Long waiting time in collaboration - Analysts and study leads need multiple exchanges to clarify likely causes and agree on next steps. | The agent drafts explanations from the available evidence, with a planned one-click report that would give study leads the likely causes, uncertainties, and proposed actions in one place. |
+| Inconsistent rule selection - The appropriate treatment depends on the study objective, the importance of the variable, and the pattern of missingness. | The agent recommends a treatment based on study context and the data profile, then lets analysts choose and approve the action. |
+| Time-consuming missing-value calculations - Analysts repeatedly compute replacement values and resolve cases such as tied modes. | The agent applies approved mean, median, or mode imputation and logs the affected cells so the calculation can be checked. |
+| Slow quality control - Reviewers repeatedly compare cleaning code, source records, and output to reconstruct what changed. | The agent shows original and cleaned data side by side and produces an audit trail and downloadable report so reviewers can verify the applied methods and remaining issues. |
+
+## What this means for a study team
+
+Imagine a study lead preparing a post-approval analysis of treatment costs and outcomes. The analyst finds missing cost values and several repeated patient identifiers, and the lead needs to know whether the gaps or apparent duplicates could affect the analysis. The agent brings the findings and proposed treatments into one review table, so the analyst can check the affected records, distinguish repeat visits from true duplicates, and approve only the appropriate changes.
+
+When the cleaned dataset is handed over, the lead can see which issues were found, what was changed, and what still needs a decision. That makes the handoff easier to review and gives the team a record it can revisit when a result is challenged. The first-round synthetic validation checks the detection and execution steps. A timed pilot with independent QC would establish whether those gains carry over to real study work. [Validation results](research/data_cleaning_validation.md)
 
 ## 2. Project workflow
 
