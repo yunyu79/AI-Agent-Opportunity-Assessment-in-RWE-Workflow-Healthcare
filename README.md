@@ -109,18 +109,46 @@ The controlled fixture returned all 47 expected findings. Three additional synth
 
 ## 6. First-year ROI estimate
 
-**ROI = (total benefit − AI cost) ÷ AI cost × 100%**
+### Returns and Costs
 
-The illustrative base case assumes 1,000 datasets per year, a loaded analyst rate of $60/hour, and 29 minutes of active labor saved per dataset. First-year AI costs include API usage, maintenance, and development.
+![Horizontal ROI breakdown showing benefits and costs](research/roi-breakdown.svg)
 
-| First-year result | Base-case estimate |
-| --- | ---: |
-| Active labor per dataset, manual → AI-assisted | 70 → 41 minutes |
-| Labor capacity value | $29,000 |
-| AI cost | $18,500 |
-| Net capacity benefit | $10,500 |
-| **First-year capacity ROI** | **56.8%** |
-| **Total workflow cost reduction versus manual** | **15.0%** |
-| Break-even annual volume at base-case savings | 632 datasets |
+### Assumptions
 
-The ROI estimate values staff time released for other work. Realized cash savings remain unmeasured. [ROI assumptions and sensitivity analysis](research/4.%20roi%20analysis.md)
+1. **Labor rate:** Use $78/hour for programming, QC and review. This pay estimate serves as a proxy for loaded labor cost. [Glassdoor salary estimates](https://www.glassdoor.com/Salaries/statistical-programmer-salary-SRCH_KO0,22.htm)
+2. **Project scope:** A small RWE project has 12 tables. AI is assumed to enable four additional projects per year, counted in incremental project contribution. The cleaning, QC, and review lines retain the earlier illustrative workload of four baseline projects. Their actual annual volume still needs confirmation.
+3. **Cleaning code development:** Model the paper’s 35–45 hours for standard analysis dataset creation as per programmer and use the 40-hour midpoint. Assume 2.5 programmer equivalents for the small RWD project, giving 100 team person-hours manually and 20 with AI at 80% savings. The paper leaves the hours basis unspecified and reports 2.5 FTEs separately for Phase III validation and verification. Applying both figures to RWD cleaning is a scenario assumption. [Automation in Statistical Programming, p. 129](https://eajournals.org/ejcsit/wp-content/uploads/sites/21/2025/04/Automation-in-Statistical-Programming.pdf#page=3)
+4. **QC:** One 40-hour workweek per table manually and one eight-hour day with AI, at 80% time savings. Treat these durations as active person-hours for this estimate. The calculation covers total QC time savings, including any avoided rework.
+5. **Human review:** One to two eight-hour days per table, with 1.5 days as the base case. Charge these hours separately, assuming they are additional to AI-assisted QC and cleaning. Confirm overlap before applying the estimate.
+6. **Incremental contribution:** Assume $120,000 in net contribution per additional small project for this scenario. The reference discusses study delivery costs. Actual net contribution requires expected revenue less incremental delivery costs. [Pro Pharma RWE cost overview](https://www.linkedin.com/pulse/unveiling-cost-factors-real-world-evidence-wgxcc)
+7. **Coding API usage:** Assume one coding task per table and one request per task, with 500 input and 1,500 output tokens per request. [Iternal token usage guide](https://iternal.ai/token-usage-guide)
+8. **Claude pricing:** Use Claude Sonnet 4.6 standard API rates of $3 per million input tokens and $15 per million output tokens. This is a costing scenario. [Anthropic API pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+9. **One-time investment:** $5,000 for the PoC and $10,000 for prompt, skill and workflow development and integration, charged in year one. [InterCode cost guide](https://intercode.com/blog/ai-development-cost-guide)
+10. **Maintenance:** Retain the prior illustrative budget of $6,000 per year pending a project-specific estimate.
+
+### First-year calculation
+
+| Item | Calculation | USD |
+| --- | --- | ---: |
+| Cleaning savings | 4 baseline projects × (100 − 20) person-hours × $78 | $24,960.00 |
+| QC time savings | 4 projects × 12 tables × (40 − 8) hours × $78 | $119,808.00 |
+| Incremental project contribution | 4 additional projects × $120,000 assumed net contribution | $480,000.00 |
+| **Total benefits** | $24,960 + $119,808 + $480,000 | **$624,768.00** |
+| PoC development | One-time estimate | $5,000.00 |
+| Prompt, skill, workflow and integration | One-time estimate | $10,000.00 |
+| **One-time costs** | $5,000 + $10,000 | **$15,000.00** |
+| Claude input tokens | 48 requests × 500 ÷ 1,000,000 × $3 | $0.072 |
+| Claude output tokens | 48 requests × 1,500 ÷ 1,000,000 × $15 | $1.080 |
+| **Total Claude API fees** | 48 requests × $0.024 per task | **$1.152** |
+| Annual maintenance | Planning estimate | $6,000.00 |
+| Human review | 4 projects × 12 tables × 1.5 days × 8 hours × $78 | $44,928.00 |
+| **Ongoing costs** | $1.152 + $6,000 + $44,928 | **$50,929.15** |
+| **Total first-year costs** | One-time + ongoing | **$65,929.15** |
+| **Net modeled benefit** | $624,768 − $65,929.15 | **$558,838.85** |
+| **First-year modeled ROI** | $558,838.85 ÷ $65,929.15 | **847.6%** |
+
+API fees are rounded only for presentation. The estimate covers the modeled coding calls. Additional review calls and retries require separate usage counts. At one to two review days per table, first-year ROI ranges from **1126.2% to 672.2%**, respectively, holding other inputs fixed. The largest benefit depends on the assumption that manual QC takes 40 active person-hours per table. Validate actual person-hours, concurrent work, and any overlap with human review before using the result for budgeting.
+
+The additive scenario assumes the labor savings booked above are distinct from the hours used to deliver the four additional projects. If those projects use the same freed hours, reduce the labor savings line by the overlapping value. The $120,000 figure drives the result and remains an unverified net contribution assumption.
+
+[Full ROI analysis and formulas](research/5.%20roi%20analysis.md)
