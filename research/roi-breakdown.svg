@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1245" height="605" viewBox="0 0 1245 605" role="img" aria-labelledby="title desc">
+<title id="title">ROI benefits and costs</title>
+<desc id="desc">A left-to-right diagram of base and additional quality benefits, one-time costs, and ongoing operating costs.</desc>
+<rect width="1245" height="605" rx="12" fill="#ffffff"/>
+<g fill="none" stroke="#657d9a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+<path d="M132 303H158.5 M158.5 136V420 M158.5 136H185 M158.5 420H185"/>
+<path d="M340 136H368.5 M368.5 84V206 M368.5 84H397 M368.5 206H397"/>
+<path d="M340 420H368.5 M368.5 348V516 M368.5 348H397 M368.5 516H397"/>
+<path d="M637 84H673.5 M673.5 40V128 M673.5 40H710 M673.5 84H710 M673.5 128H710"/>
+<path d="M637 206H673.5 M673.5 184V228 M673.5 184H710 M673.5 228H710"/>
+<path d="M637 348H673.5 M673.5 282V414 M673.5 282H710 M673.5 326H710 M673.5 370H710 M673.5 414H710"/>
+<path d="M637 516H673.5 M673.5 472V560 M673.5 472H710 M673.5 516H710 M673.5 560H710"/>
+<path d="M962 472H996 M996 450V494 M996 450H1030 M996 494H1030"/>
+</g>
+<g font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#172b45">
+<g><rect x="20" y="286" width="112" height="34" rx="6" fill="#dceafb" stroke="#9bb0cd"/><text x="76" y="303" dominant-baseline="central" text-anchor="middle" font-weight="700">ROI</text></g>
+<g><rect x="185" y="119" width="155" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="262.5" y="136" dominant-baseline="central" text-anchor="middle" font-weight="700">Benefits</text></g>
+<g><rect x="185" y="403" width="155" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="262.5" y="420" dominant-baseline="central" text-anchor="middle" font-weight="700">Costs</text></g>
+<g><rect x="397" y="67" width="240" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="517" y="84" dominant-baseline="central" text-anchor="middle" font-weight="700">Base benefits</text></g>
+<g><rect x="397" y="189" width="240" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="517" y="206" dominant-baseline="central" text-anchor="middle" font-weight="700">Additional quality benefits</text></g>
+<g><rect x="397" y="331" width="240" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="517" y="348" dominant-baseline="central" text-anchor="middle" font-weight="700">One-time costs</text></g>
+<g><rect x="397" y="499" width="240" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="517" y="516" dominant-baseline="central" text-anchor="middle" font-weight="700">Ongoing operating costs</text></g>
+<g><rect x="710" y="23" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="40" dominant-baseline="central" text-anchor="middle">Cleaning time savings</text></g>
+<g><rect x="710" y="67" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="84" dominant-baseline="central" text-anchor="middle">Incremental project contribution</text></g>
+<g><rect x="710" y="111" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="128" dominant-baseline="central" text-anchor="middle">QC rework savings</text></g>
+<g><rect x="710" y="167" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="184" dominant-baseline="central" text-anchor="middle">Post-QC error reduction</text></g>
+<g><rect x="710" y="211" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="228" dominant-baseline="central" text-anchor="middle">Traceability time savings</text></g>
+<g><rect x="710" y="265" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="282" dominant-baseline="central" text-anchor="middle">PoC development</text></g>
+<g><rect x="710" y="309" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="326" dominant-baseline="central" text-anchor="middle">Prompt and skill development</text></g>
+<g><rect x="710" y="353" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="370" dominant-baseline="central" text-anchor="middle">Workflow development</text></g>
+<g><rect x="710" y="397" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="414" dominant-baseline="central" text-anchor="middle">Systems integration</text></g>
+<g><rect x="710" y="455" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="472" dominant-baseline="central" text-anchor="middle">LLM API fees</text></g>
+<g><rect x="710" y="499" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="516" dominant-baseline="central" text-anchor="middle">Maintenance</text></g>
+<g><rect x="710" y="543" width="252" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="836" y="560" dominant-baseline="central" text-anchor="middle">Human review</text></g>
+<g><rect x="1030" y="433" width="195" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="1127.5" y="450" dominant-baseline="central" text-anchor="middle">Input token fees</text></g>
+<g><rect x="1030" y="477" width="195" height="34" rx="6" fill="#f2f6fc" stroke="#9bb0cd"/><text x="1127.5" y="494" dominant-baseline="central" text-anchor="middle">Output token fees</text></g>
+</g>
+</svg>
